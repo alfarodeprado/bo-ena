@@ -50,4 +50,4 @@ Run **inside** the `biosamples/` folder.
 
 ---
 
-*Under construction*: merging both scripts into a single entry point later, we’ll keep them separate for now.
+*Under construction*: merging both scripts into a single entry point later, they'll be kept separate for now.
