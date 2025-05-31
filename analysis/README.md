@@ -1,64 +1,80 @@
-# Genome Submission Manifests Generator
+# Annotation / Sequence ENA submission tool
 
-Standalone script to prepare per-sample submission folders and manifests for ENA/Webin-CLI or FASTA-only workflows.
+Standalone script to create per-sample submission files from the model excel file, and submitting to ENA making use of Webin-CLI.
 
 ## Folder Structure
 
 ```
 analysis/
 ├── analysis.py
-├── analysis.xlsx
-└── assembly_file.<fasta|gb|embl>
+├── ExperimentList.xlsx
+├── assembly_file.<fasta|gb|embl>
+└── credentials.txt
 ```
 
-- **analysis.xlsx** – metadata spreadsheet. Must include columns like `SAMPLE_NAME`, `STRAIN`, plus one of:
+- **ExperimentList.xlsx** – metadata spreadsheet. Must include columns like `SAMPLE_NAME`, `STRAIN`, plus one of:
   - `FLATFILE` (path to `.embl` or `.gb`)  
   - `FASTA` (path to un-annotated FASTA)
-- **assembly_file.<fasta|gb|embl>** – your sequence file. Name must match the reference in `analysis.xlsx`.
+- **assembly_file.<fasta|gb|embl>** – your sequence file. Name must match the reference in `ExperimentList.xlsx`.
+- **credentials.txt** – plain text file with two lines:
+  ```
+  username: your_ena_username
+  password: your_ena_password
+  ```
 
 ## Requirements
 
 - Python ≥ 3.8  
 - pandas ≥ 1.2 
-- openpyxl ≥ 3.0
+- openpyxl ≥ 3.0 (only if you use `--convert`)
 - Java ≥ 17 (to run Webin-CLI JAR for manifest submission)
-- Biopython ≥ 1.78 (optional, only if you supply `.gb` files needing conversion)
+- Biopython ≥ 1.78 (optional, only if you don't already supply the annotation in `.embl` format)
 
 ## Usage
 
-Run **inside** the `analysis/` folder.
+Run **inside** the `analysis/` folder. It will automatically create a folder (`submission/`) with all the submisson files already zipped and ready to submit (each in its own biosample-named folder), and a folder with the logs (`logs/`) so the submission's receipt can be checked.
+
+A typical command will look like so:
+
+`python analysis.py -c "(path/to/)ExperimentList.xlsx" -s -j "(path/to/)webin-cli-8.2.0.jar" --cred_file "(path/to/)credentials.txt"`.
+
+The path to the assembly file or FASTA is specified in the excel, so no need to further define it.
+
+The script submits the analysis objects to the test site by default, so must use the `--live` flag to submit to ENA.
 
 ### Arguments
 
 
 | Flag                       | Description                                                                                         | Required? |
 |----------------------------|-----------------------------------------------------------------------------------------------------|-----------|
-| `-c`, `--convert`          | Path to Excel file to convert (e.g. `analysis.xlsx`)                                                 | Either/Both       |
+| `-c`, `--convert`          | Path to Excel file to convert (e.g. `ExperimentList.xlsx`)                                                 | Either/Both       |
 | `-s`, `--submit`           | Submit all `submission/*` files via Webin-CLI                                           | Either/Both        |
-| `--submission_dir`         | Top‐level folder for per‐sample subdirs (default: `submission`)                                       | No        |
-| `-j`, `--jar`              | Path to Webin-CLI JAR (auto‐detected if omitted)                                                     | No        |
-| `--cred_file`              | File with username (line 1) and password (line 2) (default: `credentials.txt`)                       | No        |
+| `-j`, `--jar`              | Path to Webin-CLI JAR (auto‐detected if omitted)                                                     | Yes        |
+| `--cred_file`              | File with username (line 1) and password (line 2) (default: `credentials.txt`)                       | Yes        |
 | `--live`                   | Use real submissions (omit `-test` flag). By default, runs in test mode                               | No        |
+| `--submission_dir`         | Top‐level folder for per‐sample subdirs (default: `submission`)                                       | No        |
 | `--logs_dir`               | Directory where Webin-CLI writes its receipt logs (default: `logs`)                                  | No        |
 
 
 ## Output Structure
 
+The code will create a folder structure like so, for submission:
+
 ```
 submission/
 ├── SAMPLE1/
-│   ├── SAMPLE1.manifest.json
-│   ├── SAMPLE1.CHROMOSOME_LIST
+│   ├── manifest.txt
+│   ├── chr_list.txt.gz
 │   └── assembly_file.fasta.gz  (or .embl/.gb.gz + conversion)
 ├── SAMPLE2/
+│   ├── manifest.txt
+│   ├── chr_list.txt.gz
+│   └── assembly_file.fasta.gz  (or .embl/.gb.gz + conversion)
 └── …
 ```
 
-- **Annotated**: put `.embl` or `.gb` under `FLATFILE`; `.gb` will be auto-converted.  
-- **FASTA-only**: put `.fasta` under `FASTA`; header accession is auto-extracted.
-
-You can then run Webin-CLI against `submission/` to send everything.
+It will also create the `logs/` folder when using `-s`.
 
 ---
 
-*Under construction*: merging both scripts into a single entry point later, they'll be kept separate for now.
+*Under construction*: merging all scripts into a single entry point later, they must be run each in its own folder for now.
