@@ -10,18 +10,18 @@ It is specifically designed to make use of a standardized excel file format, and
 biosamples/
 ├── biosamples.py
 ├── MetadataList.xlsx
-└── credentials.txt   # (optional) ENA username/password, or pass via CLI
+└── credentials.txt   # (optional) ENA username/password
 ```
 
 - **MetadataList.xlsx** – your metadata table. Column headers must match the `expected_fields` list in `biosamples.py`.  
 - **credentials.txt** – plain text file with two lines:
   ```
-  username: your_ena_username
-  password: your_ena_password
+  your_ena_username
+  your_ena_password
   ```
   Or supply `-u`/`--user` and `-p`/`--password` on the command line instead.
 
-## Requirements
+## Requirements (only if not running `set_env.py`)
 
 - Python ≥ 3.8  
 - pandas ≥ 1.2  

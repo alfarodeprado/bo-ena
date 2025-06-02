@@ -14,17 +14,18 @@ analysis/
 └── credentials.txt
 ```
 
-- **AssemblyList.xlsx** – metadata spreadsheet. Must include columns like `SAMPLE_NAME`, `STRAIN`, plus one of:
+- **AssemblyList.xlsx** – metadata spreadsheet. Must include one of:
   - `FLATFILE` (path to `.embl` or `.gb`)  
   - `FASTA` (path to un-annotated FASTA)
+
 - **assembly_file.<fasta|gb|embl>** – your sequence file. Name must match the reference in `AssemblyList.xlsx`.
 - **credentials.txt** – plain text file with two lines:
   ```
-  username: your_ena_username
-  password: your_ena_password
+  your_ena_username
+  your_ena_password
   ```
 
-## Requirements
+## Requirements (only if not running `set_env.py`)
 
 - Python ≥ 3.8  
 - pandas ≥ 1.2 
