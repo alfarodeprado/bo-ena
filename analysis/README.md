@@ -2,20 +2,22 @@
 
 Standalone script to create per-sample submission files from the model excel file, and submitting to ENA making use of Webin-CLI.
 
+It is specifically designed to make use of a standardized excel file format, and for submission of plastid annotation / sequences (chromosome list is hardcoded).
+
 ## Folder Structure
 
 ```
 analysis/
 ├── analysis.py
-├── ExperimentList.xlsx
+├── AssemblyList.xlsx
 ├── assembly_file.<fasta|gb|embl>
 └── credentials.txt
 ```
 
-- **ExperimentList.xlsx** – metadata spreadsheet. Must include columns like `SAMPLE_NAME`, `STRAIN`, plus one of:
+- **AssemblyList.xlsx** – metadata spreadsheet. Must include columns like `SAMPLE_NAME`, `STRAIN`, plus one of:
   - `FLATFILE` (path to `.embl` or `.gb`)  
   - `FASTA` (path to un-annotated FASTA)
-- **assembly_file.<fasta|gb|embl>** – your sequence file. Name must match the reference in `ExperimentList.xlsx`.
+- **assembly_file.<fasta|gb|embl>** – your sequence file. Name must match the reference in `AssemblyList.xlsx`.
 - **credentials.txt** – plain text file with two lines:
   ```
   username: your_ena_username
@@ -36,7 +38,7 @@ Run **inside** the `analysis/` folder. It will automatically create a folder (`s
 
 A typical command will look like so:
 
-`python analysis.py -c "(path/to/)ExperimentList.xlsx" -s -j "(path/to/)webin-cli-8.2.0.jar" --cred_file "(path/to/)credentials.txt"`.
+`python analysis.py -c "(path/to/)AssemblyList.xlsx" -s -j "(path/to/)webin-cli-8.2.0.jar" --cred_file "(path/to/)credentials.txt"`.
 
 The path to the assembly file or FASTA is specified in the excel, so no need to further define it.
 
@@ -47,7 +49,7 @@ The script submits the analysis objects to the test site by default, so must use
 
 | Flag                       | Description                                                                                         | Required? |
 |----------------------------|-----------------------------------------------------------------------------------------------------|-----------|
-| `-c`, `--convert`          | Path to Excel file to convert (e.g. `ExperimentList.xlsx`)                                                 | Either/Both       |
+| `-c`, `--convert`          | Path to Excel file to convert (e.g. `AssemblyList.xlsx`)                                                 | Either/Both       |
 | `-s`, `--submit`           | Submit all `submission/*` files via Webin-CLI                                           | Either/Both        |
 | `-j`, `--jar`              | Path to Webin-CLI JAR (auto‐detected if omitted)                                                     | Yes        |
 | `--cred_file`              | File with username (line 1) and password (line 2) (default: `credentials.txt`)                       | Yes        |

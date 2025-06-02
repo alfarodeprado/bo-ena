@@ -2,6 +2,8 @@
 
 This is a standalone script for generating and submitting ENA BioSamples XML from a metadata spreadsheet.
 
+It is specifically designed to make use of a standardized excel file format, and for submission of plastid biosamples (biosample attribute checklist is hardcoded, etc).
+
 ## Folder Structure
 
 ```
