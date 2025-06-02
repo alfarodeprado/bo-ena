@@ -9,6 +9,8 @@ import gzip
 import subprocess
 import shutil
 import glob
+from collections import defaultdict
+
 
 
 def compress_file(path, remove_original=True):
@@ -41,6 +43,7 @@ def convert_manifests(excel_file, submission_dir="submission"):
     # Load Excel
     df = pd.read_excel(excel_file, sheet_name=0)
     df.columns = df.columns.str.strip()
+    sample_counts = defaultdict(int)
     required = [
         "STUDY","SAMPLE","RUN_REF","ASSEMBLYNAME","ASSEMBLY_TYPE",
         "COVERAGE","PROGRAM","PLATFORM","MOLECULETYPE",
@@ -55,7 +58,15 @@ def convert_manifests(excel_file, submission_dir="submission"):
 
     for idx, row in df.iterrows():
         n = idx + 1
-        sample_id = str(row["SAMPLE"]).strip()
+
+        # In case there is more than one objects associated with the same sample (folders are created with the sample accession numbers)
+        raw_id = str(row["SAMPLE"]).strip()
+        sample_counts[raw_id] += 1
+        if sample_counts[raw_id] == 1:
+            sample_id = raw_id
+        else:
+            sample_id = f"{raw_id}_{sample_counts[raw_id]}"
+
         samp_dir = os.path.join(submission_dir, sample_id)
         os.makedirs(samp_dir, exist_ok=True)
 

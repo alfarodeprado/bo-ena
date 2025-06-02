@@ -1,6 +1,6 @@
 # Annotation / Sequence ENA submission tool
 
-Standalone script to create per-sample submission files from the model excel file, and submitting to ENA making use of Webin-CLI.
+Standalone script to create per-sample annotation or assembly submission files from the model excel file, and submitting to ENA making use of Webin-CLI.
 
 It is specifically designed to make use of a standardized excel file format, and for submission of plastid annotation / sequences (chromosome list is hardcoded).
 
