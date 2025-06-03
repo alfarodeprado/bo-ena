@@ -1,6 +1,6 @@
 # bo-ena - ENA submission tool for plastid biosamples, sequences and annotations
 
-A simple program to submit biosample metadata (biosample), sequences (Experiment + Run) and assemblies or annotations (Analysis) to ENA, using simple python scripts and Webin-CLI.
+A simple program to submit biosample metadata (Biosample), sequences (Experiment + Run) and assemblies or annotations (Analysis) to ENA, using simple python scripts and Webin-CLI.
 
 
 ## Folder structure
@@ -19,8 +19,7 @@ The structure inside the main working directory should look like this:
 │
 ├── runs/
 │   ├── runs.py
-│   ├── ExperimentList.xlsx
-│   └── assembly_file.<fasta | gb | embl>
+│   └── ExperimentList.xlsx
 │
 ├── set_env.py
 ├── .gitignore
