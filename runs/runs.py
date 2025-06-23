@@ -163,12 +163,15 @@ def find_jar(jar_arg):
 def submit_manifests(manifests, jar, user, pwd, live, logs_dir):
     for mf in manifests:
         inp = os.path.dirname(mf)
+        sample_id = os.path.basename(inp)
+        log_subdir = os.path.join(logs_dir, sample_id)
+        os.makedirs(log_subdir, exist_ok=True)
         cmd = [
             "java", "-jar", jar,
             "-context", "reads",
             "-manifest", mf,
             "-inputDir", inp,
-            "-outputDir", logs_dir,
+            "-outputDir", log_subdir,
             "-submit",
             "-username", user,
             "-password", pwd
