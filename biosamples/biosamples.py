@@ -10,6 +10,9 @@ import os        # Paths, folders, etc
 import datetime  # For conversion of date
 import subprocess  # For curl
 import re       # For date pattern matching
+import tempfile
+import shlex
+import stat
 
 # Default ENA endpoints
 TEST_ENDPOINT = "https://wwwdev.ebi.ac.uk/ena/submit/drop-box/submit/"
@@ -202,16 +205,44 @@ def submit_data(username, password, logs_dir="logs", url=TEST_ENDPOINT):
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     receipt_file = os.path.join(logs_dir, f"biosample_receipt_{timestamp}.xml")
 
+    # create a temporary netrc file for curl authentication
+    if "://" in url:
+        host = url.split("://", 1)[1].split("/", 1)[0]
+    else:
+        host = url.split("/", 1)[0]
+
+    with tempfile.NamedTemporaryFile("w", delete=False) as tf:
+        tf.write(f"machine {host}\nlogin {username}\npassword {password}\n")
+    netrc_path = tf.name
+    os.chmod(netrc_path, 0o600)
+
+    try:
+        curl_command = [
+            "curl",
+            "--netrc-file", netrc_path,              # <— no -u flag
+            "-F", f"SUBMISSION=@{submission_file}",
+            "-F", f"SAMPLE=@biosamples.xml",
+            url,
+            "-o", receipt_file
+        ]
+
+        # 3) print *safe* command (no secrets anywhere)
+        print("→ Running:", " ".join(shlex.quote(a) for a in curl_command))
+
+        result = subprocess.run(curl_command, capture_output=True, text=True)
+    finally:
+        os.remove(netrc_path)                        # ensure cleanup
+    
     # Run curl
-    curl_command = [
-        "curl",
-        "-u", f"{username}:{password}",
-        "-F", f"SUBMISSION=@{submission_file}",
-        "-F", f"SAMPLE=@biosamples.xml",
-        url,
-        "-o", receipt_file
-    ]
-    result = subprocess.run(curl_command, capture_output=True, text=True)
+    # curl_command = [
+    #     "curl",
+    #     "-u", f"{username}:{password}",
+    #     "-F", f"SUBMISSION=@{submission_file}",
+    #     "-F", f"SAMPLE=@biosamples.xml",
+    #     url,
+    #     "-o", receipt_file
+    # ]
+    # result = subprocess.run(curl_command, capture_output=True, text=True)
     print("Curl exit code:", result.returncode)
     if result.stdout:
         print("Stdout:", result.stdout)
