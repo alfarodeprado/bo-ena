@@ -9,6 +9,7 @@ import gzip
 import subprocess
 import shutil
 import glob
+import errno
 from collections import defaultdict
 
 
@@ -99,20 +100,47 @@ def convert_manifests(excel_file, submission_dir="submission"):
         compressed_files = []
         # Handle each file: copy into samp_dir, compress if needed
         for _, rel in entries:
-            path_in = os.path.abspath(rel)
-            if not os.path.exists(path_in):
-                sys.exit(f"Row {n}: file not found: {path_in}")
-            fname = os.path.basename(rel)
-            dst = os.path.join(samp_dir, fname)
-            if os.path.abspath(rel) != dst:
-                shutil.copy(path_in, dst)
+            # path_in = os.path.abspath(rel)
+            # if not os.path.exists(path_in):
+            #     sys.exit(f"Row {n}: file not found: {path_in}")
+            # fname = os.path.basename(rel)
+            # dst = os.path.join(samp_dir, fname)
+            # if os.path.abspath(rel) != dst:
+            #     shutil.copy(path_in, dst)
 
-            ext = os.path.splitext(fname)[1].lower()
-            if ext == ".gz":
-                compressed_files.append(os.path.basename(dst))
-            else:
-                gz_name = compress_file(dst, remove_original=True)
-                compressed_files.append(gz_name)
+            # ext = os.path.splitext(fname)[1].lower()
+            # if ext == ".gz":
+            #     compressed_files.append(os.path.basename(dst))
+            # else:
+            #     gz_name = compress_file(dst, remove_original=True)
+            #     compressed_files.append(gz_name)
+
+            src = os.path.abspath(rel)
+            if not os.path.exists(src):
+                sys.exit(f"Row {n}: file not found: {src}")
+            # if file is already in samp_dir, just add to manifest
+            if os.path.dirname(src) == os.path.abspath(samp_dir):
+                compressed_files.append(os.path.basename(src))
+                continue
+            # if already .gz then hard-link into samp_dir
+            if src.endswith(".gz"):
+                link_path = os.path.join(samp_dir, os.path.basename(src))
+                try:
+                    os.link(src, link_path)        # hard-link
+                except OSError:
+                        raise
+                compressed_files.append(os.path.basename(link_path))
+                continue
+
+            # if not .gz then stream-compress right into samp_dir
+            gz_name = os.path.basename(src) + ".gz"
+            dst = os.path.join(samp_dir, gz_name)
+
+            with open(src, "rb") as f_in, gzip.open(dst, "wb", compresslevel=6) as f_out:
+                shutil.copyfileobj(f_in, f_out, length=1024 * 1024)  # 1 MiB chunks
+
+            compressed_files.append(gz_name)
+
 
         # Write manifest.txt
         mf = os.path.join(samp_dir, "manifest.txt")
@@ -178,13 +206,24 @@ def submit_manifests(manifests, jar, user, pwd, live, logs_dir):
         ]
         if not live:
             cmd.insert(cmd.index("-submit"), "-test")
-        print(f"→ Running: {' '.join(cmd)}")
+        
+        #print(f"→ Running: {' '.join(cmd)}")
+
+        # redact user and password in the printed command
+        safe_cmd = [
+            ("******" if c in (user, pwd) else c)       # replace secrets
+            for c in cmd
+        ]
+        print(f"→ Running: {' '.join(safe_cmd)}")
+
         res = subprocess.run(cmd, capture_output=True, text=True)
         print(f"  Return code: {res.returncode}")
         if res.stdout:
             print(res.stdout)
         if res.stderr:
             print(res.stderr, file=sys.stderr)
+    
+    # remove files?
 
 
 def main():

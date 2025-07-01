@@ -197,7 +197,14 @@ def submit_manifests(manifests, jar, user, pwd, live, logs_dir):
         ]
         if not live:
             cmd.insert(cmd.index("-submit"), "-test")
-        print(f"→ Running: {' '.join(cmd)}")
+        #print(f"→ Running: {' '.join(cmd)}")
+
+        # redact user and password in the printed command
+        safe_cmd = [
+            ("******" if c in (user, pwd) else c)       # replace secrets
+            for c in cmd
+        ]
+        print(f"→ Running: {' '.join(safe_cmd)}")
         res = subprocess.run(cmd, capture_output=True, text=True)
         print(f"  Return code: {res.returncode}")
         if res.stdout:
