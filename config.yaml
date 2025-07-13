@@ -1,0 +1,6 @@
+credentials: credentials.txt
+jar: webin-cli-8.2.0.jar
+excel_biosamples: biosamples/BiosampleList.xlsx
+excel_runs: runs/ExperimentList.xlsx
+excel_analysis: analysis/AssemblyList.xlsx
+live: False

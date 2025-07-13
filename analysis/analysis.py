@@ -10,17 +10,23 @@ import subprocess
 import shutil
 import glob
 from collections import defaultdict
+import yaml
+
+def load_config(cfg_path: str = "config.yaml") -> dict:
+    """
+    Return a dict with the YAML content or an empty dict if the file is absent.
+    """
+    if os.path.exists(cfg_path):
+        with open(cfg_path, "r") as fh:
+            return yaml.safe_load(fh) or {}
+    return {}
 
 
-
-def compress_file(path, remove_original=True):
-    """Compress `path` → `path.gz`.  
-       If remove_original, delete the uncompressed file."""
+def compress_file(path):
+    """Compress `path` → `path.gz`"""
     gz_path = path + ".gz"
     with open(path, "rb") as f_in, gzip.open(gz_path, "wb") as f_out:
         f_out.writelines(f_in)
-    if remove_original:
-        os.remove(path)
     return os.path.basename(gz_path)
 
 def extract_first_accession(analysis_path):
@@ -100,7 +106,7 @@ def convert_manifests(excel_file, submission_dir="submission"):
                     sys.exit(f"Row {n}: no records written converting {path_in}")
                 print(f"[Row {n}] Converted {path_in} → {embl_path} ({count} recs)")
                 acc = extract_first_accession(embl_path)
-                embl_gz = compress_file(embl_path, remove_original=False)
+                embl_gz = compress_file(embl_path)
                 data_field = ("FLATFILE", embl_gz)
 
             elif ext == ".embl":
@@ -110,7 +116,7 @@ def convert_manifests(excel_file, submission_dir="submission"):
                 if embl_src != embl_dst:
                     shutil.copy(embl_src, embl_dst)
                 acc = extract_first_accession(embl_dst)
-                embl_gz = compress_file(embl_dst, remove_original=False)
+                embl_gz = compress_file(embl_dst)
                 data_field = ("FLATFILE", embl_gz)
 
             else:
@@ -125,7 +131,7 @@ def convert_manifests(excel_file, submission_dir="submission"):
             if fasta_src != fasta_dst:
                 shutil.copy(fasta_src, fasta_dst)
             acc = extract_first_accession(fasta_dst)
-            fasta_gz = compress_file(fasta_dst, remove_original=False)
+            fasta_gz = compress_file(fasta_dst)
             data_field = ("FASTA", fasta_gz)
 
 
@@ -133,7 +139,7 @@ def convert_manifests(excel_file, submission_dir="submission"):
         chr_txt = os.path.join(samp_dir, "chr_list.txt")
         with open(chr_txt, "w") as f:
             f.write(f"{acc} 1 Circular-Chromosome Plastid")
-        chr_gz = compress_file(chr_txt, remove_original=False)
+        chr_gz = compress_file(chr_txt)
 
         # Write manifest.txt
         mf = os.path.join(samp_dir, "manifest.txt")
@@ -156,6 +162,7 @@ def convert_manifests(excel_file, submission_dir="submission"):
 
     return manifest_paths
 
+
 def prepare_logs_dir(logs_dir="logs"):
     os.makedirs(logs_dir, exist_ok=True)
     return logs_dir
@@ -168,6 +175,7 @@ def load_credentials(path):
         sys.exit(f"{path} must have username on line 1 and password on line 2")
     return lines[0], lines[1]
 
+
 def find_jar(jar_arg):
     if jar_arg:
         if os.path.isfile(jar_arg):
@@ -178,10 +186,10 @@ def find_jar(jar_arg):
         return webin[0]
     sys.exit("Auto-detect failed; pass --jar /path/to/webin-cli.jar")
 
+
 def submit_manifests(manifests, jar, user, pwd, live, logs_dir):
     for mf in manifests:
         inp = os.path.dirname(mf)
-        # Ensure per‐sample log directories mirroring the submission/ structure
         sample_id = os.path.basename(inp)
         log_subdir = os.path.join(logs_dir, sample_id)
         os.makedirs(log_subdir, exist_ok=True)
@@ -205,6 +213,7 @@ def submit_manifests(manifests, jar, user, pwd, live, logs_dir):
             for c in cmd
         ]
         print(f"→ Running: {' '.join(safe_cmd)}")
+
         res = subprocess.run(cmd, capture_output=True, text=True)
         print(f"  Return code: {res.returncode}")
         if res.stdout:
@@ -214,44 +223,60 @@ def submit_manifests(manifests, jar, user, pwd, live, logs_dir):
 
 def main():
     p = argparse.ArgumentParser(
-        description="analysis.py → per‐sample submission folders + Webin-CLI"
-    )
+        description="analysis.py → per‐sample submission folders + Webin-CLI")
+    
+    p.add_argument(
+        "--config", default="config.yaml",
+        help="Path to YAML config file (default: config.yaml)")
+    
     p.add_argument(
         "-c", "--convert", metavar="EXCEL",
-        help="Convert EXCEL to per‐sample submission/<SAMPLE>/…"
-    )
+        help="Convert EXCEL to per‐sample submission/<SAMPLE>/…")
+    
     p.add_argument(
         "-s", "--submit", action="store_true",
-        help="Submit all submission/*/manifest.txt via Webin-CLI"
-    )
+        help="Submit all submission/*/manifest.txt via Webin-CLI")
+    
     p.add_argument(
         "--submission_dir", default="submission",
-        help="Top‐level folder for per‐sample subdirs (default=submission/)"
-    )
+        help="Top‐level folder for per‐sample subdirs (default=submission/)")
+    
     p.add_argument(
-        "-j", "--jar", help="Path to webin-cli JAR (auto‐detect if omitted)"
-    )
+        "-j", "--jar", help="Path to webin-cli JAR (auto‐detect if omitted)")
+    
     p.add_argument(
         "--cred_file", default="credentials.txt",
-        help="File with username (line1) and password (line2)"
-    )
+        help="File with username (line1) and password (line2)")
+    
     p.add_argument(
         "--live", action="store_true",
-        help="Use real submission (omit -test). Default=test"
-    )
+        help="Use real submission (omit -test). Default=test")
+    
     p.add_argument(
         "--logs_dir", default="logs",
-        help="Where Webin-CLI writes its receipts"
-    )
+        help="Where Webin-CLI writes its receipts")
+    
     args = p.parse_args()
 
+    # pull YAML config
+    cfg = load_config(args.config)
+
+    # 1. Excel file to convert
+    excel_path = args.convert or cfg.get("excel_runs")
+    # 2. credentials file
+    cred_path  = args.cred_file or cfg.get("credentials", "credentials.txt")
+    # 3. JAR path
+    jar_path   = args.jar or cfg.get("jar")
+    # 4. live flag
+    live = args.live or cfg.get("live", False)
+
     manifests = []
-    if args.convert:
-        manifests = convert_manifests(args.convert, args.submission_dir)
+    if excel_path:
+        manifests = convert_manifests(excel_path, args.submission_dir)
 
     if args.submit:
-        user, pwd = load_credentials(args.cred_file)
-        jar = find_jar(args.jar)
+        user, pwd = load_credentials(cred_path)
+        jar = find_jar(jar_path)
         logs = prepare_logs_dir(args.logs_dir)
         if not manifests:
             # discover all manifests under submission_dir
@@ -260,7 +285,7 @@ def main():
             )
             if not manifests:
                 sys.exit("No manifests found; run with -c your.xlsx first.")
-        submit_manifests(manifests, jar, user, pwd, args.live, logs)
+        submit_manifests(manifests, jar, user, pwd, live, logs)
 
     if not args.convert and not args.submit:
         p.print_help()
