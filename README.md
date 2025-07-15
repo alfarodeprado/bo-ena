@@ -1,4 +1,4 @@
-# bo-ena - ENA submission tool for plastid biosamples, sequences and annotations
+# bo-ena - Tool for submission of plastid biosamples, reads and annotations to ENA
 
 A simple program to submit biosample metadata (Biosample), sequences (Experiment + Run) and assemblies or annotations (Analysis) to ENA, using simple python scripts and Webin-CLI.
 
@@ -21,7 +21,10 @@ The structure inside the main working directory should look like this:
 │   ├── runs.py
 │   └── ExperimentList.xlsx
 │
+├── config.yaml
 ├── set_env.py
+├── credentials.txt
+├── webin-cli-xxx.jar
 ├── .gitignore
 └── README.md
 ```
@@ -47,15 +50,17 @@ Each script is run independently for now.
 
 - Once created the environment, one can also run it manually by `source env/bin/activate` (Linux/Mac), or `env\Scripts\activate` (Windows cmd). Then once finished `deactivate`.
 
-- Run each script in its folder, since it will be easier to define paths, and all submission files will be created in that folder
+- The config file should be filled, and in case any argument is left empty, the scripts will read the arguments passed when called. Then if missing also, the default values will be used as input.
 
-- May use -c (--convert) to generate XML or manifest(s), and add -s (--submit) to post it to ENA. Can do one or the two
+- **Run each script in its folder**, since it will be easier to define paths, and all submission files will be created in that folder.
 
-- By default, scripts run in “test” mode, the `--live` flag switches from the test endpoint to the production server
+- May use `-c` and `-s` if not using the config file, to generate XML or manifest(s) and to submit to ENA, respectively. Can do one or the two.
 
-- Credentials may come from --username/--password or --cred_file
+- By default, scripts run in “test” mode, the `live` field in the config file (or `--live` flag as argument) switches from the test endpoint to the production server.
 
-- Logs and Webin-CLI receipts go into logs/ by default, which is created automatically in the working directory
+- Credentials may come from the `credentials` field, or (only for biosamples.py) when using terminal arguments, `--cred_file` or `--username` and `--password`. This credentials file is assumed to be a text file with the username in line 1, and password in line 2.
+
+- Logs and Webin-CLI receipts go into `logs/` by default, which is created automatically in the working directory.
 
 ## Requirements
 
@@ -65,7 +70,7 @@ If running set_env.py:
   All scripts are written for Python 3; tested on 3.8–3.12.
 
 - **Java ≥ 17**  
-  Only for data files submission (runs and analysis objects), not necessary for biosample submission.
+  Only for data files submission (runs and analysis objects), not necessary for biosample submission. (not required if running on FUB HPC)
 
 - **curl**  
   Only for biosample submission.
@@ -73,13 +78,16 @@ If running set_env.py:
 If not:
 
 - **pandas ≥ 1.2**  
-  Used for reading and processing Excel files in both `analysis.py` and `biosamples.py`
+  Used for reading and processing Excel files in both `analysis.py` and `biosamples.py`.
 
 - **openpyxl ≥ 3.0**  
-  Required by pandas to parse `.xlsx` workbooks
+  Required by pandas to parse `.xlsx` workbooks.
+
+- **pyyaml**  
+  Used to read the config file.
 
 - **biopython**  
-  Required for annotation conversion from Genbank to EMBL format (`.gb` -> `.embl`)
+  Required for annotation conversion from Genbank to EMBL format (`.gb` -> `.embl`).
 
 More often than not, just running `pip install module_name` works.
 

@@ -1,5 +1,6 @@
 # Downloadable libraries
 import pandas as pd
+import yaml
 
 # Standard libraries
 import xml.etree.ElementTree as ET
@@ -12,7 +13,15 @@ import subprocess  # For curl
 import re       # For date pattern matching
 import tempfile
 import shlex
-import stat
+
+def load_config(cfg_path: str = "../config.yaml") -> dict:
+    """
+    Return a dict with the YAML content or an empty dict if the file is absent.
+    """
+    if os.path.exists(cfg_path):
+        with open(cfg_path, "r") as fh:
+            return yaml.safe_load(fh) or {}
+    return {}
 
 # Default ENA endpoints
 TEST_ENDPOINT = "https://wwwdev.ebi.ac.uk/ena/submit/drop-box/submit/"
@@ -294,38 +303,64 @@ def main():
     )
     parser.add_argument("-c", "--convert", metavar="EXCEL_FILE",
                         help="Convert the given Excel file (e.g., 'MetadataList.xlsx') to biosamples.xml")
+
     parser.add_argument("-s", "--submit", action="store_true",
                         help="Submit the XML files using curl")
+
     parser.add_argument("-u", "--username",
                         help="Username for submission (optional if --cred_file is provided)")
+
     parser.add_argument("-p", "--password",
                         help="Password for submission (optional if --cred_file is provided)")
+
     parser.add_argument("--cred_file", default="credentials.txt",
                         help="Path to a text file with username on line 1 and password on line 2")
+
     parser.add_argument("--live", action="store_true",
                         help="Submit to the live ENA endpoint instead of test (DEV) endpoint")
+
     parser.add_argument("--logs_dir", default="logs",
                         help="Directory to store submission logs (default: logs)")
 
     args = parser.parse_args()
 
-    if args.convert:
-        excel_to_xml(args.convert)
+    cfg = load_config(args.config)
 
-    if args.submit:
+    excel_path = cfg.get("excel_biosamples")
+    if not excel_path:
+        excel_path = args.convert
+    
+    submit = cfg.get("submit")
+    if not submit:
+        submit = args.submit
+
+    cred_path = cfg.get("credentials")
+    if not cred_path:
+        cred_path = args.cred_file
+
+    live = cfg.get("live")
+    if not live:
+        live = args.live
+    
+
+
+    if excel_path:
+        excel_to_xml(excel_path)
+
+    if submit:
         # Load or override credentials
         if args.username and args.password:
             user, pw = args.username, args.password
         else:
-            user, pw = load_credentials(args.cred_file)
+            user, pw = load_credentials(cred_path)
 
         create_submission_xml()
         logs = prepare_logs_dir(args.logs_dir)
-        endpoint = LIVE_ENDPOINT if args.live else TEST_ENDPOINT
+        endpoint = LIVE_ENDPOINT if live else TEST_ENDPOINT
         print(f"Using endpoint: {endpoint}")
         submit_data(user, pw, logs, endpoint)
 
-    if not args.convert and not args.submit:
+    if not excel_path and not submit:
         parser.print_help()
 
 

@@ -1,2 +1,6 @@
 /env/
 /cred.txt
+/credentials.txt
+*.jar
+logs/
+submission/

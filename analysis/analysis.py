@@ -1,5 +1,6 @@
 # Downloadable libraries
 import pandas as pd
+import yaml
 
 # Standard libraries
 import os
@@ -10,9 +11,8 @@ import subprocess
 import shutil
 import glob
 from collections import defaultdict
-import yaml
 
-def load_config(cfg_path: str = "config.yaml") -> dict:
+def load_config(cfg_path: str = "../config.yaml") -> dict:
     """
     Return a dict with the YAML content or an empty dict if the file is absent.
     """
@@ -164,7 +164,11 @@ def convert_manifests(excel_file, submission_dir="submission"):
 
 
 def prepare_logs_dir(logs_dir="logs"):
-    os.makedirs(logs_dir, exist_ok=True)
+    if not os.path.exists(logs_dir):
+        os.makedirs(logs_dir)
+        print(f"Directory '{logs_dir}' created.")
+    else:
+        print(f"Directory '{logs_dir}' already exists.")
     return logs_dir
 
 def load_credentials(path):
@@ -226,7 +230,7 @@ def main():
         description="analysis.py → per‐sample submission folders + Webin-CLI")
     
     p.add_argument(
-        "--config", default="config.yaml",
+        "--config", default="../config.yaml",
         help="Path to YAML config file (default: config.yaml)")
     
     p.add_argument(
@@ -261,20 +265,33 @@ def main():
     # pull YAML config
     cfg = load_config(args.config)
 
+    # Now, get all arguments from the config file, if empty then from command line, and if empty, then defaults
     # 1. Excel file to convert
-    excel_path = args.convert or cfg.get("excel_runs")
-    # 2. credentials file
-    cred_path  = args.cred_file or cfg.get("credentials", "credentials.txt")
-    # 3. JAR path
-    jar_path   = args.jar or cfg.get("jar")
-    # 4. live flag
-    live = args.live or cfg.get("live", False)
+    excel_path = cfg.get("excel_analysis")
+    if not excel_path:
+        excel_path = args.convert
+    # 2. Submit
+    submit = cfg.get("submit")
+    if not submit:
+        submit = args.submit
+    # 3. Credentials file
+    cred_path = cfg.get("credentials")
+    if not cred_path:
+        cred_path = args.cred_file
+    # 4. JAR path
+    jar_path = cfg.get("jar")
+    if not jar_path:
+        jar_path = args.jar
+    # 5. live flag
+    live = cfg.get("live")
+    if not live:
+        live = args.live
 
     manifests = []
     if excel_path:
         manifests = convert_manifests(excel_path, args.submission_dir)
 
-    if args.submit:
+    if submit:
         user, pwd = load_credentials(cred_path)
         jar = find_jar(jar_path)
         logs = prepare_logs_dir(args.logs_dir)
@@ -287,7 +304,7 @@ def main():
                 sys.exit("No manifests found; run with -c your.xlsx first.")
         submit_manifests(manifests, jar, user, pwd, live, logs)
 
-    if not args.convert and not args.submit:
+    if not excel_path and not submit:
         p.print_help()
 
 if __name__ == "__main__":
