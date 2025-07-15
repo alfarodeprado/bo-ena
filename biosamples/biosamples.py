@@ -301,6 +301,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="Biosamples submission tool to ENA, converts Excel to XML and submits."
     )
+
+    parser.add_argument(
+        "--config", default="../config.yaml",
+        help="Path to YAML config file (default: config.yaml)")
+    
     parser.add_argument("-c", "--convert", metavar="EXCEL_FILE",
                         help="Convert the given Excel file (e.g., 'MetadataList.xlsx') to biosamples.xml")
 

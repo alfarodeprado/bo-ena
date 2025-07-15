@@ -29,6 +29,8 @@ The structure inside the main working directory should look like this:
 └── README.md
 ```
 
+The Webin CLI jar file can be downloaded from `https://github.com/enasequence/webin-cli/releases`.
+
 ## Usage
 
 Each script is run independently for now.
