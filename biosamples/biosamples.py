@@ -275,10 +275,16 @@ def submit_data(username, password, logs_dir="logs", url=TEST_ENDPOINT):
 
             # Write to text file
             out_file = os.path.join(os.path.dirname(__file__), 'biosample_accessions.txt')
-            with open(out_file, 'w') as out:
-                out.write('accession\talias\n')
+            write_mode = "a+" if os.path.exists(out_file) else "w+"
+            with open(out_file, write_mode) as out:
+                out.seek(0)
+                existing = {l.strip() for l in out if l.strip()}
+                if not existing:
+                    out.write("accession\talias\n")
                 for acc, alias in records:
-                    out.write(f"{acc}\t{alias}\n")
+                    line = f"{acc}\t{alias}"
+                    if line not in existing:
+                        out.write(line + "\n")
             print(f"Accessions written to {out_file}")
         except Exception as e:
             print(f"Error parsing receipt XML: {e}")
