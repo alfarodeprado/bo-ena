@@ -242,16 +242,7 @@ def submit_data(username, password, logs_dir="logs", url=TEST_ENDPOINT):
     finally:
         os.remove(netrc_path)                        # ensure cleanup
     
-    # Run curl
-    # curl_command = [
-    #     "curl",
-    #     "-u", f"{username}:{password}",
-    #     "-F", f"SUBMISSION=@{submission_file}",
-    #     "-F", f"SAMPLE=@biosamples.xml",
-    #     url,
-    #     "-o", receipt_file
-    # ]
-    # result = subprocess.run(curl_command, capture_output=True, text=True)
+
     print("Curl exit code:", result.returncode)
     if result.stdout:
         print("Stdout:", result.stdout)
@@ -284,6 +275,8 @@ def submit_data(username, password, logs_dir="logs", url=TEST_ENDPOINT):
                 for acc, alias in records:
                     line = f"{acc}\t{alias}"
                     if line not in existing:
+                        if url == TEST_ENDPOINT:
+                            line += " (test)"
                         out.write(line + "\n")
             print(f"Accessions written to {out_file}")
         except Exception as e:
