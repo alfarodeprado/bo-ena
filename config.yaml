@@ -3,5 +3,7 @@ jar: ../webin-cli-8.2.0.jar
 excel_biosamples: BiosampleList.xlsx
 excel_runs: ExperimentList.xlsx
 excel_analysis: AssemblyList.xlsx
+sub_dir:                                  # Insert here path to where the submission files will be stored
 submit: True
-live: False
+live:                                     # Leave empty for it to be set at runtime in the terminal with the
+                                          # "--live" flag, or set to True or False here (mind the letter case)

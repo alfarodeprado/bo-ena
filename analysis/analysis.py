@@ -274,22 +274,26 @@ def main():
     submit = cfg.get("submit")
     if not submit:
         submit = args.submit
-    # 3. Credentials file
+    # 3. Submission folder path
+    sub_dir = cfg.get("sub_dir")
+    if not sub_dir:
+        sub_dir = args.submission_dir
+    # 4. Credentials file
     cred_path = cfg.get("credentials")
     if not cred_path:
         cred_path = args.cred_file
-    # 4. JAR path
+    # 5. JAR path
     jar_path = cfg.get("jar")
     if not jar_path:
         jar_path = args.jar
-    # 5. live flag
+    # 6. live flag
     live = cfg.get("live")
     if not live:
         live = args.live
 
     manifests = []
     if excel_path:
-        manifests = convert_manifests(excel_path, args.submission_dir)
+        manifests = convert_manifests(excel_path, sub_dir)
 
     if submit:
         user, pwd = load_credentials(cred_path)
@@ -298,7 +302,7 @@ def main():
         if not manifests:
             # discover all manifests under submission_dir
             manifests = sorted(
-                glob.glob(os.path.join(args.submission_dir, "*", "manifest.txt"))
+                glob.glob(os.path.join(sub_dir, "*", "manifest.txt"))
             )
             if not manifests:
                 sys.exit("No manifests found; run with -c your.xlsx first.")
