@@ -108,10 +108,11 @@ def convert_manifests(excel_file, submission_dir="submission"):
             # if already .gz then hard-link into samp_dir
             if src.endswith(".gz"):
                 link_path = os.path.join(samp_dir, os.path.basename(src))
-                try:
-                    os.link(src, link_path)        # hard-link
-                except OSError:
-                        raise
+                if not link_path.exists():
+                    try:
+                        os.link(src, link_path)        # hard-link
+                    except OSError:
+                            raise
                 compressed_files.append(os.path.basename(link_path))
                 continue
 
