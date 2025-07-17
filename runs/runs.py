@@ -108,7 +108,7 @@ def convert_manifests(excel_file, submission_dir="submission"):
             # if already .gz then hard-link into samp_dir
             if src.endswith(".gz"):
                 link_path = os.path.join(samp_dir, os.path.basename(src))
-                if not link_path.exists():
+                if not os.path.exists(link_path):
                     try:
                         os.link(src, link_path)        # hard-link
                     except OSError:
