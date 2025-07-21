@@ -12,7 +12,7 @@ SCRIPT="${1:-}"  # pass one of: biosamples, analysis, runs
 
 if [[ -z "$SCRIPT" ]]; then
   echo "Error: No script specified."
-  echo "Usage: bash $0 {biosamples|analysis|runs}"
+  echo "Usage: ./$0 {biosamples|analysis|runs}, or bash hpc.sh {biosamples|analysis|runs}"
   exit 1
 fi
 
