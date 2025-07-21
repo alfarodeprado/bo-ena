@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 
-# Simple helper to run selected BO pipeline sections on FU‑Berlin HPC.
-# Toggle RUN_* flags below.
+# Helper to run a selected BO pipeline on FU‑Berlin HPC.
+# Usage: ./hpc.sh {biosamples|analysis|runs}
 
 set -euo pipefail
 
 # ------------------------------
-# Flags: set to true/false as needed
+# Script to run: biosamples, analysis, or runs
 # ------------------------------
-RUN_BIOSAMPLES=true   # biosamples/biosamples.py
-RUN_ANALYSES=false     # analyses/analysis.py
-RUN_RUNS=false         # runs/runs.py
-# ------------------------------
+SCRIPT="${1:-}"  # pass one of: biosamples, analysis, runs
 
+if [[ -z "$SCRIPT" ]]; then
+  echo "Error: No script specified."
+  echo "Usage: $0 {biosamples|analysis|runs}"
+  exit 1
+fi
+
+# Load environment
 module purge
 module load Python/3.11.3-GCCcore-12.3.0
 
@@ -22,17 +26,33 @@ python set_env.py -s -H
 # 2) Activate the environment created by set_env.py
 source env/bin/activate
 
-run_section() {
+# Helper to run a given script
+run_script() {
   local dir="$1"
   local script="$2"
   echo "--- Running ${dir}/${script} ---"
   ( cd "$dir" && python "$script" )
 }
 
-[ "$RUN_BIOSAMPLES" = true ] && run_section "biosamples" "biosamples.py"
-[ "$RUN_ANALYSES"   = true ] && run_section "analysis"  "analysis.py"
-[ "$RUN_RUNS"       = true ] && run_section "runs"      "runs.py"
+# Dispatch based on SCRIPT
+case "$SCRIPT" in
+  biosamples)
+    run_script "biosamples" "biosamples.py"
+    ;;
+  analysis)
+    run_script "analyses" "analysis.py"
+    ;;
+  runs)
+    run_script "runs" "runs.py"
+    ;;
+  *)
+    echo "Error: Unknown script '$SCRIPT'."
+    echo "Usage: $0 {biosamples|analysis|runs}"
+    exit 1
+    ;;
+esac
 
+# Clean up
 module purge
 
-echo "All selected sections completed."
+echo "'$SCRIPT' script  completed."

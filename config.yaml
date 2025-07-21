@@ -3,7 +3,20 @@ jar: ../webin-cli-8.2.0.jar
 excel_biosamples: BiosampleList.xlsx
 excel_runs: ExperimentList.xlsx
 excel_analysis: AssemblyList.xlsx
-sub_dir:                                  # Insert here path to where the submission files will be stored
+
+# If not set to True, the scripts will only generate the 
+# files for submission (convert excel, generate xml, gz, etc)
+# Recommended: True
 submit: True
-live:                                     # Leave empty for it to be set at runtime in the terminal with the
-                                          # "--live" flag, or set to True or False here (mind the letter case)
+
+# Leave empty for it to be set at runtime in the terminal with the
+# "--live" flag, or set to True or False here (mind the case)
+# Recommended: True (the objects aren't made public until the study is public)
+live:                                     
+
+# Paths to where you want to store the files for submission.
+# If empty it will be set to the current working directory by default
+# Recommended: empty (defaults to current working directory)
+sub_dir_runs:                             # analysis submission files
+sub_dir_analysis:                         # runs submission files
+

@@ -263,7 +263,7 @@ def main():
     if not submit:
         submit = args.submit
     # 3. Submission folder path
-    sub_dir = cfg.get("sub_dir")
+    sub_dir = cfg.get("sub_dir_runs")
     if not sub_dir:
         sub_dir = args.submission_dir
     # 4. Credentials file
