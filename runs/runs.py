@@ -110,7 +110,7 @@ def convert_manifests(excel_file, submission_dir="submission"):
                 link_path = os.path.join(samp_dir, os.path.basename(src))
                 if not os.path.exists(link_path):
                     try:
-                        os.link(src, link_path)        # hard-link
+                        os.symlink(src, link_path)         # relative link
                     except OSError:
                             raise
                 compressed_files.append(os.path.basename(link_path))
