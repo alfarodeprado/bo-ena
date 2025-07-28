@@ -23,6 +23,7 @@ The structure inside the main working directory should look like this:
 │
 ├── config.yaml
 ├── set_env.py
+├── hpc.sh
 ├── credentials.txt
 ├── webin-cli-xxx.jar
 ├── .gitignore
