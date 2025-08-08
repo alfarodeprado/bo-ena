@@ -105,7 +105,7 @@ def convert_manifests(excel_file, submission_dir="submission"):
             if os.path.dirname(src) == os.path.abspath(samp_dir):
                 compressed_files.append(os.path.basename(src))
                 continue
-            # if already .gz then hard-link into samp_dir
+            # if already .gz then soft-link into samp_dir
             if src.endswith(".gz"):
                 link_path = os.path.join(samp_dir, os.path.basename(src))
                 if not os.path.exists(link_path):
@@ -176,12 +176,27 @@ def find_jar(jar_arg):
     sys.exit("Auto-detect failed; pass --jar /path/to/webin-cli.jar")
 
 
+def drop_cached_validation(log_subdir: str):
+    """
+    Delete stale validate.json files inside logs/<sample_id>/reads/*/
+
+    Removing these forces Webin-CLI to recalculate MD5s on the next run, without throwing away the whole log directory.
+    """
+    pattern = os.path.join(log_subdir, "reads", "*", "validate.json")
+    for path in glob.glob(pattern):
+        try:
+            os.remove(path)
+            print(f"  Removed cached validation → {path}")
+        except OSError as exc:
+            print(f"  Could not remove {path}: {exc}")
+
 def submit_manifests(manifests, jar, user, pwd, live, logs_dir):
     for mf in manifests:
         inp = os.path.dirname(mf)
         sample_id = os.path.basename(inp)
         log_subdir = os.path.join(logs_dir, sample_id)
         os.makedirs(log_subdir, exist_ok=True)
+        drop_cached_validation(log_subdir)
         cmd = [
             "java", "-jar", jar,
             "-context", "reads",

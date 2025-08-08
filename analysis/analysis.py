@@ -190,6 +190,17 @@ def find_jar(jar_arg):
         return webin[0]
     sys.exit("Auto-detect failed; pass --jar /path/to/webin-cli.jar")
 
+def drop_cached_validation(log_subdir: str):
+    """
+    Delete logs/<sample_id>/genome/*/ without deleting the whole log dir, forcing Webin-CLI to recalculate MD5s on the next run.
+    """
+    pattern = os.path.join(log_subdir, "genome", "*", "validate.json")
+    for path in glob.glob(pattern):
+        try:
+            os.remove(path)
+            print(f"  Removed cached validation → {path}")
+        except OSError as exc:
+            print(f"  Could not remove {path}: {exc}")
 
 def submit_manifests(manifests, jar, user, pwd, live, logs_dir):
     for mf in manifests:
@@ -197,6 +208,7 @@ def submit_manifests(manifests, jar, user, pwd, live, logs_dir):
         sample_id = os.path.basename(inp)
         log_subdir = os.path.join(logs_dir, sample_id)
         os.makedirs(log_subdir, exist_ok=True)
+        drop_cached_validation(log_subdir)
         cmd = [
             "java", "-jar", jar,
             "-context", "genome",
