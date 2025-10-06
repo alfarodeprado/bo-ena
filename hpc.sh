@@ -1,24 +1,27 @@
 #!/usr/bin/env bash
+#SBATCH --job-name=bo-ena
+#SBATCH --mail-user=alfarodea01@zedat.fu-berlin.de
+#SBATCH --output=logs/bo-ena_%j.out
+#SBATCH --error=logs/bo-ena_%j.err
+#SBATCH --time=5:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --qos=standard
+#SBATCH --mem=4G
+
+set -euo pipefail
 
 # Helper to run a selected BO pipeline on FU‑Berlin HPC.
 # Usage: ./hpc.sh {biosamples|analysis|runs}
 
-set -euo pipefail
-
-# ------------------------------
-# Script to run: biosamples, analysis, or runs
-# ------------------------------
-SCRIPT="${1:-}"  # pass one of: biosamples, analysis, runs
-
-if [[ -z "$SCRIPT" ]]; then
-  echo "Error: No script specified."
-  echo "Usage: ./$0 {biosamples|analysis|runs}, or bash hpc.sh {biosamples|analysis|runs}"
-  exit 1
-fi
+######################################################################
+# Possible objects: "biosamples", "analysis", or "runs"
+ena_object="analysis"
+######################################################################
 
 # Load environment
 module purge
 module load Python/3.11.3-GCCcore-12.3.0
+module load Java/21.0.5
 
 # 1) Set / refresh project environment WITHOUT spawning a sub‑shell
 python set_env.py -s -H
@@ -26,27 +29,27 @@ python set_env.py -s -H
 # 2) Activate the environment created by set_env.py
 source env/bin/activate
 
-# Helper to run a given script
+# Helper to run a given ena_object
 run_script() {
   local dir="$1"
-  local script="$2"
-  echo "--- Running ${dir}/${script} ---"
-  ( cd "$dir" && python "$script" )
+  local ena_object="$2"
+  echo "--- Running ${dir}/${ena_object} ---"
+  ( cd "$dir" && python "$ena_object" )
 }
 
-# Dispatch based on SCRIPT
-case "$SCRIPT" in
+# Dispatch based on ena_object
+case "$ena_object" in
   biosamples)
     run_script "biosamples" "biosamples.py"
     ;;
   analysis)
-    run_script "analyses" "analysis.py"
+    run_script "analysis" "analysis.py"
     ;;
   runs)
     run_script "runs" "runs.py"
     ;;
   *)
-    echo "Error: Unknown script '$SCRIPT'."
+    echo "Error: Unknown script '$ena_object'."
     echo "Usage: $0 {biosamples|analysis|runs}"
     exit 1
     ;;
@@ -55,4 +58,4 @@ esac
 # Clean up
 module purge
 
-echo "'$SCRIPT' script  completed."
+echo "'$ena_object' script completed."

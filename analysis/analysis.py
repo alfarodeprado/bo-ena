@@ -11,6 +11,7 @@ import subprocess
 import shutil
 import glob
 from collections import defaultdict
+from typing import Optional
 
 def load_config(cfg_path: str = "../config.yaml") -> dict:
     """
@@ -21,43 +22,108 @@ def load_config(cfg_path: str = "../config.yaml") -> dict:
             return yaml.safe_load(fh) or {}
     return {}
 
+def stage_file(src_path: str, dest_dir: str, mode: str = "cp") -> str:
+    """
+    Stage `src_path` into `dest_dir`.
 
-def compress_file(path):
-    """Compress `path` → `path.gz`"""
-    gz_path = path + ".gz"
-    with open(path, "rb") as f_in, gzip.open(gz_path, "wb") as f_out:
-        f_out.writelines(f_in)
-    return os.path.basename(gz_path)
+    mode = "cp"  -> copy into dest_dir as <basename>; returns <basename>
+    mode = "cmp" -> gzip into dest_dir as <basename>.gz; returns <basename>.gz
+    """
+    if mode not in {"cp", "cmp"}:
+        sys.exit(f"stage_file: invalid mode '{mode}', use 'cp' or 'cmp'")
 
-def extract_first_accession(analysis_path):
-    """Return first AC accession from an EMBL flatfile or sequence name from a FASTA file."""
-    # open gzipped or plain text
-    if analysis_path.lower().endswith(".gz"):
-        open_f, mode = gzip.open, "rt"
-    else:
-        open_f, mode = open, "r"
-    with open_f(analysis_path, mode) as f:
+    src = os.path.abspath(src_path)
+    if not os.path.exists(src):
+        sys.exit(f"File not found: {src}")
+
+    os.makedirs(dest_dir, exist_ok=True)
+
+    if mode == "cp":
+        dst = os.path.join(dest_dir, os.path.basename(src))
+        if os.path.abspath(src) != os.path.abspath(dst):
+            shutil.copy(src, dst)
+        return os.path.basename(dst)
+
+    # mode == "cmp"
+    dst_gz = os.path.join(dest_dir, os.path.basename(src) + ".gz")
+    with open(src, "rb") as f_in, gzip.open(dst_gz, "wb") as f_out:
+        shutil.copyfileobj(f_in, f_out, length=1024 * 1024)
+    return os.path.basename(dst_gz)
+
+def extract_first_accession(path):
+    opener = gzip.open if path.lower().endswith(".gz") else open
+    with opener(path, "rt") as f:
         for line in f:
-            if line.startswith("AC"):
-                return line[2:].strip().split()[0].rstrip(";")
             if line.startswith(">"):
                 return line[1:].strip().split()[0]
-    sys.exit(f"Error: no accession line ('AC' or '>') found in {analysis_path}")
+            if line.startswith("AC"):
+                body = line[2:].strip().rstrip(";")
+                parts = body.split()
+                if parts and parts[0] == "*" and len(parts) > 1:
+                    return parts[1]
+                return parts[0]
+    sys.exit(f"Error: no accession line ('AC' or '>') found in {path}")
 
+def _norm_level(x: Optional[str]) -> str:
+    if not x:
+        return "chromosome" # backward-compatible default
+    x = str(x).strip().lower()
+    if x in {"chr", "chrom", "chromosome", "organellar"}:
+        return "chromosome"
+    if x in {"scaffold", "scaffolds", "scf"}:
+        return "scaffold"
+    if x in {"contig", "contigs"}:
+        return "contig"
+    raise SystemExit(f"Unknown ASSEMBLY_LEVEL '{x}'. Use contig|scaffold|chromosome.")
 
-def convert_manifests(excel_file, submission_dir="submission"):
+def has_n_gaps(fasta_path, n=50):
+    prev = ""  # carryover across lines
+    opener = gzip.open if fasta_path.endswith(".gz") else open
+    with opener(fasta_path, "rt") as fh:
+        for line in fh:
+            if line.startswith(">"):
+                prev = ""
+                continue
+            s = (prev + line.rstrip()).upper()
+            if f"N{'N'*(n-1)}" in s:  # simple fast check
+                return True
+            # keep tail of last n-1 chars to bridge line breaks
+            prev = s[-(n-1):]
+    return False
+
+def convert_manifests(excel_file: str, submission_dir: str = "submission", default_level: str = "chromosome", default_mingaplength: Optional[int] = None,) -> list:
+    """
+    Convert the analysis Excel to per-sample Webin-CLI submission folders.
+
+    NEW:
+      - Supports ASSEMBLY_LEVEL per row (contig|scaffold|chromosome) or via config default.
+      - Supports AGP and/or MINGAPLENGTH for scaffold-level submissions.
+      - Only writes CHROMOSOME_LIST for chromosome-level submissions.
+    """
     # Load Excel
     df = pd.read_excel(excel_file, sheet_name=0)
     df.columns = df.columns.str.strip()
     sample_counts = defaultdict(int)
+
+    # Required metadata fields (stay strict to keep templates consistent)
     required = [
-        "STUDY","SAMPLE","RUN_REF","ASSEMBLYNAME","ASSEMBLY_TYPE",
-        "COVERAGE","PROGRAM","PLATFORM","MOLECULETYPE",
-        "DESCRIPTION","FLATFILE","FASTA"
+        "STUDY", "SAMPLE", "RUN_REF", "ASSEMBLYNAME", "ASSEMBLY_TYPE",
+        "COVERAGE", "PROGRAM", "PLATFORM", "MOLECULETYPE", "DESCRIPTION",
+        # one of FLATFILE | FASTA will be used below
     ]
     missing = [c for c in required if c not in df.columns]
     if missing:
         sys.exit(f"Missing columns in Excel: {', '.join(missing)}")
+
+    # Optional columns the user may provide
+    optional_cols = {c.upper() for c in df.columns}
+    has_agp_col = "AGP" in optional_cols
+    has_mingap_col = "MINGAPLENGTH" in optional_cols
+    has_level_col = "ASSEMBLY_LEVEL" in optional_cols
+    # Optional chromosome customisation
+    has_chr_name = "CHR_NAME" in optional_cols
+    has_chr_type = "CHR_TYPE" in optional_cols
+    has_chr_loc  = "CHR_LOCATION" in optional_cols
 
     os.makedirs(submission_dir, exist_ok=True)
     manifest_paths = []
@@ -65,81 +131,113 @@ def convert_manifests(excel_file, submission_dir="submission"):
     for idx, row in df.iterrows():
         n = idx + 1
 
-        # In case there is more than one objects associated with the same sample (folders are created with the sample accession numbers)
+        # In case there is more than one object associated with the same sample
         raw_id = str(row["SAMPLE"]).strip()
         sample_counts[raw_id] += 1
-        if sample_counts[raw_id] == 1:
-            sample_id = raw_id
-        else:
-            sample_id = f"{raw_id}_{sample_counts[raw_id]}"
+        sample_id = raw_id if sample_counts[raw_id] == 1 else f"{raw_id}_{sample_counts[raw_id]}"
 
         samp_dir = os.path.join(submission_dir, sample_id)
         os.makedirs(samp_dir, exist_ok=True)
 
-        flat = str(row["FLATFILE"]).strip()
-        fasta = str(row["FASTA"]).strip()
-        has_flat = flat and flat.lower() != "nan"
-        has_fasta = fasta and fasta.lower() != "nan"
+        # Data file: exactly one of FLATFILE or FASTA
+        flat = str(row.get("FLATFILE", "")).strip()
+        fasta = str(row.get("FASTA", "")).strip()
+        has_flat = bool(flat) and flat.lower() != "nan"
+        has_fasta = bool(fasta) and fasta.lower() != "nan"
         if has_flat == has_fasta:
             sys.exit(f"Row {n}: exactly one of FLATFILE or FASTA must be set")
 
-        # Prepare FLATFILE handling
         if has_flat:
-            rel = flat
-            path_in = os.path.abspath(rel)
+            path_in = os.path.abspath(flat)
             ext = os.path.splitext(path_in)[1].lower()
-
             if ext == ".gb":
-                # Lazy‐import Biopython only if needed
                 try:
-                    from Bio import SeqIO
+                    from Bio import SeqIO  # lazy import
                 except ImportError:
                     sys.exit(
                         "Error: converting .gb → .embl requires Biopython;\n"
                         " please install biopython or supply an .embl flatfile."
                     )
-                stem = os.path.splitext(os.path.basename(rel))[0]
+                stem = os.path.splitext(os.path.basename(flat))[0]
                 embl_path = os.path.join(samp_dir, stem + ".embl")
                 recs = SeqIO.parse(path_in, "genbank")
                 count = SeqIO.write(recs, embl_path, "embl")
                 if count == 0:
                     sys.exit(f"Row {n}: no records written converting {path_in}")
                 print(f"[Row {n}] Converted {path_in} → {embl_path} ({count} recs)")
-                acc = extract_first_accession(embl_path)
-                embl_gz = compress_file(embl_path)
-                data_field = ("FLATFILE", embl_gz)
-
+                seqname = extract_first_accession(embl_path)
+                data_field = ("FLATFILE", stage_file(embl_path, samp_dir, mode="cmp"))
+                # Optionally remove the temporary uncompressed EMBL to avoid duplication. Will leave for now, could be useful having the file
+                # try:
+                #     os.remove(embl_path)
+                # except OSError:
+                #     pass
             elif ext == ".embl":
-                # Copy-in the existing EMBL
-                embl_src = path_in
-                embl_dst = os.path.join(samp_dir, os.path.basename(rel))
-                if embl_src != embl_dst:
-                    shutil.copy(embl_src, embl_dst)
-                acc = extract_first_accession(embl_dst)
-                embl_gz = compress_file(embl_dst)
-                data_field = ("FLATFILE", embl_gz)
-
+                seqname = extract_first_accession(path_in)
+                data_field = ("FLATFILE", stage_file(path_in, samp_dir, mode="cmp"))
             else:
                 sys.exit(f"Row {n}: FLATFILE must end in .gb or .embl, not '{ext}'")
-        
         else:
-            # FASTA-only: extract accession from the first '>' header line
-            rel = fasta
-            path_in = os.path.abspath(rel)
-            fasta_src = path_in
-            fasta_dst = os.path.join(samp_dir, os.path.basename(rel))
-            if fasta_src != fasta_dst:
-                shutil.copy(fasta_src, fasta_dst)
-            acc = extract_first_accession(fasta_dst)
-            fasta_gz = compress_file(fasta_dst)
-            data_field = ("FASTA", fasta_gz)
+            src = os.path.abspath(fasta)
+            seqname = extract_first_accession(src)            # read the original to get the first header
+            data_field = ("FASTA", stage_file(src, samp_dir, mode="cmp"))
 
+        # Determine assembly level
+        level = _norm_level(row.get("ASSEMBLY_LEVEL") if has_level_col else default_level)
 
-        # Create chr_list.txt(.gz)
-        chr_txt = os.path.join(samp_dir, "chr_list.txt")
-        with open(chr_txt, "w") as f:
-            f.write(f"{acc} 1 Circular-Chromosome Plastid")
-        chr_gz = compress_file(chr_txt)
+        # Prepare optional files/fields depending on level
+        agp_field = None
+        chrlist_field = None
+        mingap_value: Optional[int] = None
+
+        if level == "chromosome":
+            # Allow user-provided CHR_* columns, else fall back to plastid-friendly default
+            chr_name = str(row.get("CHR_NAME", "1")).strip() if has_chr_name else "1"
+            chr_type = str(row.get("CHR_TYPE", "Circular-Chromosome")).strip() if has_chr_type else "Circular-Chromosome"
+            chr_loc  = str(row.get("CHR_LOCATION", "Plastid")).strip() if has_chr_loc else "Plastid"
+
+            chr_txt = os.path.join(samp_dir, "chr_list.txt")
+            with open(chr_txt, "w") as f:
+                f.write(f"{seqname}\t{chr_name}\t{chr_type}\t{chr_loc}")
+            chr_gz = stage_file(chr_txt, samp_dir, mode="cmp")
+            chrlist_field = ("CHROMOSOME_LIST", chr_gz)
+
+        elif level == "scaffold":
+            # Either AGP or MINGAPLENGTH must be provided
+            agp_val = str(row.get("AGP", "")).strip() if has_agp_col else ""
+            if agp_val and agp_val.lower() != "nan":
+                agp_field = ("AGP", stage_file(agp_val, samp_dir, mode="cmp"))
+            else:
+                # No AGP: require MINGAPLENGTH either in Excel or default from config
+                if has_mingap_col:
+                    raw_mg = row.get("MINGAPLENGTH")
+                    if pd.notnull(raw_mg) and str(raw_mg).strip() != "":
+                        try:
+                            mingap_value = int(raw_mg)
+                        except ValueError:
+                            sys.exit(f"Row {n}: MINGAPLENGTH must be an integer (got '{raw_mg}')")
+                if mingap_value is None:
+                    if default_mingaplength is None:
+                        sys.exit(
+                            f"Row {n}: scaffold-level requires AGP or MINGAPLENGTH (set column or config.default_mingaplength)."
+                        )
+                    mingap_value = int(default_mingaplength)
+
+        elif level == "contig":
+            pass  # nothing extra
+        else:
+            raise SystemExit(f"Internal error: unexpected level '{level}'")
+        
+        # Decide which source file to scan for Ns
+        seq_src = None
+        if has_fasta:
+            seq_src = src  # scan the original FASTA
+
+        # Only warn for scaffold-level with implicit Ns (no AGP)
+        if level == "scaffold" and not agp_field:
+            threshold = (mingap_value if mingap_value is not None else default_mingaplength or 50)
+            if seq_src and not has_n_gaps(seq_src, threshold):
+                print(f"[Row {n}] WARNING: no N runs ≥ {threshold} found; this looks contig-level.")
 
         # Write manifest.txt
         mf = os.path.join(samp_dir, "manifest.txt")
@@ -152,16 +250,23 @@ def convert_manifests(excel_file, submission_dir="submission"):
             fh.write(f"COVERAGE\t{row['COVERAGE']}\n")
             fh.write(f"PROGRAM\t{row['PROGRAM']}\n")
             fh.write(f"PLATFORM\t{row['PLATFORM']}\n")
+            # MINGAPLENGTH is only meaningful for scaffold level when using Ns
+            if mingap_value is not None:
+                fh.write(f"MINGAPLENGTH\t{mingap_value}\n")
             fh.write(f"MOLECULETYPE\t{row['MOLECULETYPE']}\n")
-            if pd.notnull(row["DESCRIPTION"]) and str(row["DESCRIPTION"]).strip().lower() != "nan":
+            if pd.notnull(row.get("DESCRIPTION")) and str(row.get("DESCRIPTION")).strip().lower() != "nan":
                 fh.write(f"DESCRIPTION\t{row['DESCRIPTION']}\n")
+            # Data file
             fh.write(f"{data_field[0]}\t{data_field[1]}\n")
-            fh.write(f"CHROMOSOME_LIST\t{chr_gz}\n")
-        print(f"[Row {n}] Wrote manifest → {mf}")
+            # Optional files according to level
+            if agp_field:
+                fh.write(f"{agp_field[0]}\t{agp_field[1]}\n")
+            if chrlist_field:
+                fh.write(f"{chrlist_field[0]}\t{chrlist_field[1]}\n")
+        print(f"[Row {n}] Wrote manifest → {mf} (level={level})")
         manifest_paths.append(mf)
 
     return manifest_paths
-
 
 def prepare_logs_dir(logs_dir="logs"):
     if not os.path.exists(logs_dir):
@@ -179,7 +284,6 @@ def load_credentials(path):
         sys.exit(f"{path} must have username on line 1 and password on line 2")
     return lines[0], lines[1]
 
-
 def find_jar(jar_arg):
     if jar_arg:
         if os.path.isfile(jar_arg):
@@ -192,7 +296,7 @@ def find_jar(jar_arg):
 
 def drop_cached_validation(log_subdir: str):
     """
-    Delete logs/<sample_id>/genome/*/ without deleting the whole log dir, forcing Webin-CLI to recalculate MD5s on the next run.
+    Delete logs/<sample_id>/genome/*/validate.json without deleting the whole log dir, forcing Webin-CLI to recalculate MD5s on the next run.
     """
     pattern = os.path.join(log_subdir, "genome", "*", "validate.json")
     for path in glob.glob(pattern):
@@ -272,6 +376,14 @@ def main():
         "--logs_dir", default="logs",
         help="Where Webin-CLI writes its receipts")
     
+    p.add_argument(
+    "--assembly_level", choices=["contig", "scaffold", "chromosome"],
+    help="Override default assembly level (contig|scaffold|chromosome)")
+
+    p.add_argument(
+    "--mingaplength", type=int,
+    help="Default MINGAPLENGTH when submitting scaffolds without AGP")
+    
     args = p.parse_args()
 
     # pull YAML config
@@ -302,10 +414,22 @@ def main():
     live = cfg.get("live")
     if not live:
         live = args.live
+    # 7. assembly level (chromosome, scaffold or contig) and mingaplength for scaffold and no agp file
+    default_level = cfg.get("assembly_level")
+    if not default_level:
+        default_level = args.assembly_level or "chromosome"
+    default_mingap = cfg.get("mingaplength")
+    if not default_mingap:
+        default_mingap = args.mingaplength
 
     manifests = []
     if excel_path:
-        manifests = convert_manifests(excel_path, sub_dir)
+        manifests = convert_manifests(
+            excel_path,
+            submission_dir=sub_dir,
+            default_level=default_level,
+            default_mingaplength=default_mingap,
+        )
 
     if submit:
         user, pwd = load_credentials(cred_path)

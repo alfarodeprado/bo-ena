@@ -34,12 +34,12 @@ The Webin CLI jar file can be downloaded from `https://github.com/enasequence/we
 
 ## Usage
 
-If running on the HPC, all you need to set is the configuration file, in which you will find all necessary configuration settings, like designated paths and parameters. Then, simply running `hpc.sh` with the option that you want (either `biosamples`, `analysis`, or `runs`) will run the proper script.
+If running on the HPC, all you need to set is the configuration file, in which you will find all necessary configuration settings, like designated paths and parameters. Then, simply editing `hpc.sh` with the option that you want (either `biosamples`, `analysis`, or `runs`) will run the proper script.
 
 A typical command will look like this (once you are in the proper root directory):  
-`bash hpc.sh runs` or `./hpc.sh biosamples`
+`bash hpc.sh` or `./hpc.sh`.
 
-Each script is run independently.
+Each script can still be run independently, given that either the proper dependencies are available, or that `set_env.py` is run.
 
 If not running on the HPC:
 
@@ -58,13 +58,13 @@ If not running on the HPC:
     python set_env.py -s -r
 ```
 
-- Once created the environment, one can also run it manually by `source env/bin/activate` (Linux/Mac), or `env\Scripts\activate` (Windows cmd). Then once finished `deactivate`.
+- Once the environment is created, one can also run it manually by `source env/bin/activate` (Linux/Mac), or `env\Scripts\activate` (Windows cmd). Then once finished `deactivate`.
 
 - **Run each script in its folder**, since it will be easier to define paths, and all submission files will be created in that folder (by default, if not specified in the configuration file).
 
 - May use `-c` and `-s` if not using the configuration file, to generate XML or manifest(s) and to submit to ENA, respectively. Can do one or the two.
 
-- By default, scripts run in “test” mode, the `live` field in the configuration file (or `--live` flag as argument) switches from the test endpoint to the production server.
+- By default, scripts are run in “test” mode, the `live` field in the configuration file (or `--live` flag as argument) switches from the test endpoint to the public server.
 
 - Credentials may come from the `credentials` field, or (only for biosamples.py) when using terminal arguments, `--cred_file` or `--username` and `--password`. This credentials file is assumed to be a text file with the username in line 1, and password in line 2.
 
