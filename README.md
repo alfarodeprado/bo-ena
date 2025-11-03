@@ -10,16 +10,15 @@ The structure inside the main working directory should look like this:
 
 ├── biosamples/
 │   ├── biosamples.py
-│   └── MetadataList.xlsx
+│   └── BiosampleList.xlsx // BiosampleList.tsv
 │
 ├── analysis/
 │   ├── analysis.py
-│   ├── AssemblyList.xlsx
-│   └── assembly_file.<fasta | gb | embl>
+│   └── AnalysisList.xlsx // AnalysisList.tsv
 │
 ├── runs/
 │   ├── runs.py
-│   └── ExperimentList.xlsx
+│   └── ExperimentList.xlsx // ExperimentList.tsv
 │
 ├── config.yaml
 ├── set_env.py
@@ -34,14 +33,16 @@ The Webin CLI jar file can be downloaded from `https://github.com/enasequence/we
 
 ## Usage
 
-If running on the HPC, all you need to set is the configuration file, in which you will find all necessary configuration settings, like designated paths and parameters. Then, simply editing `hpc.sh` with the option that you want (either `biosamples`, `analysis`, or `runs`) will run the proper script.
+If running on the HPC, all you need to set is the configuration file, in which you will find all necessary configuration settings, like designated paths and parameters. Then, simply editing the variable `ena_object` inside `hpc.sh` with the option that you want (either `biosamples`, `analysis`, or `runs`) will run the proper script.
 
-A typical command will look like this (once you are in the proper root directory):  
-`bash hpc.sh` or `./hpc.sh`.
+A typical command will look like this (once you are in the project's root directory):  
+`$sbatch hpc.sh` 
+or if not using slurm:
+`$bash hpc.sh` or `./hpc.sh`.
+
+### If not running on the HPC
 
 Each script can still be run independently, given that either the proper dependencies are available, or that `set_env.py` is run.
-
-If not running on the HPC:
 
 - The configuration file should be filled, and in case any argument is left empty, the scripts will read the arguments passed when called. Then if missing also, the default values will be used as input.
 
@@ -74,12 +75,14 @@ If not running on the HPC:
 
 - All objects depend on the associated Study object, which serves as an umbrella under which all other objects are. This object (Study) controls the release date of all objects associated with it. An explanation for the ENA metadata model can be found here: `https://ena-docs.readthedocs.io/en/latest/submit/general-guide/metadata.html`.
 
-- The center name is determined by the user's account.
+- The center name for submission is determined by the user's account. It can be edited at ENA's Webin Submissions Portal `https://www.ebi.ac.uk/ena/submit/webin/login`.
 
 
 ## Requirements
 
 If running on FU Berlin's HPC, there are no software requirements, all necessary modules are already there.
+
+### If not running on the HPC
 
 If running set_env.py:
 
