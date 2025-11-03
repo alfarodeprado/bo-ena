@@ -80,7 +80,7 @@ Each script can still be run independently, given that either the proper depende
 
 ## Requirements
 
-If running on FU Berlin's HPC, there are no software requirements, all necessary modules are already there.
+If running on FU Berlin's HPC, there are no software requirements, all necessary modules are already there or will be installed under `~/env/`.
 
 ### If not running on the HPC
 
@@ -90,7 +90,7 @@ If running set_env.py:
   All scripts are written for Python 3; tested on 3.8–3.12.
 
 - **Java ≥ 17**  
-  Only for data files submission (runs and analysis objects), not necessary for biosample submission. (not required if running on FUB HPC)
+  Only for data files submission (runs and analysis objects), not necessary for biosample submission.
 
 - **curl**  
   Only for biosample submission.
@@ -101,7 +101,7 @@ If not:
   Used for reading and processing Excel files in both `analysis.py` and `biosamples.py`.
 
 - **openpyxl ≥ 3.0**  
-  Required by pandas to parse `.xlsx` workbooks.
+  Required by pandas to parse `.xlsx` workbooks (Excel).
 
 - **pyyaml**  
   Used to read the configuration file.
