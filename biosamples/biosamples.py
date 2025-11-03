@@ -27,8 +27,23 @@ def load_config(cfg_path: str = "../config.yaml") -> dict:
 TEST_ENDPOINT = "https://wwwdev.ebi.ac.uk/ena/submit/drop-box/submit/"
 LIVE_ENDPOINT = "https://www.ebi.ac.uk/ena/submit/drop-box/submit/"
 
+def load_table(path: str, case: str = "lower"):
+    ext = os.path.splitext(path)[1].lower()
+    if ext in {".xlsx", ".xls"}:
+        df = pd.read_excel(path, sheet_name=0)
+    elif ext in {".tsv", ".tab", ".txt"}:
+        df = pd.read_csv(path, sep="\t")
+    else:
+        sys.exit(f"Unsupported table extension '{ext}'. Use .xlsx/.xls or .tsv/.tab/.txt")
+    df.columns = df.columns.str.strip()
+    if case == "upper":
+        df.columns = df.columns.str.upper()
+    elif case == "lower":
+        df.columns = df.columns.str.lower()
+    return df
 
-def excel_to_xml(excel_file, output_xml="biosamples.xml"):
+
+def excel_to_xml(table_file, output_xml="biosamples.xml"):
     # Expected fields (in the expected order)
     expected_fields = [
         "isolate", "organism", "taxon_id", "bio_material", "specimen_voucher",
@@ -63,10 +78,15 @@ def excel_to_xml(excel_file, output_xml="biosamples.xml"):
     ]
     
     # Read the first sheet of the excel file
+    # try:
+    #     df = pd.read_excel(table_file, sheet_name=0)
+    # except Exception as e:
+    #     sys.exit(f"Error reading Excel file: {e}")
+    
     try:
-        df = pd.read_excel(excel_file, sheet_name=0)
+        df = load_table(table_file, case="lower")
     except Exception as e:
-        sys.exit(f"Error reading Excel file: {e}")
+        sys.exit(f"Error reading table: {e}")
     
     # Verify that all expected columns are present
     missing_cols = [col for col in expected_fields if col not in df.columns]
@@ -305,8 +325,10 @@ def main():
         "--config", default="../config.yaml",
         help="Path to YAML config file (default: config.yaml)")
     
-    parser.add_argument("-c", "--convert", metavar="EXCEL_FILE",
-                        help="Convert the given Excel file (e.g., 'MetadataList.xlsx') to biosamples.xml")
+    # parser.add_argument("-c", "--convert", metavar="EXCEL_FILE",
+    #                     help="Convert the given Excel file (e.g., 'MetadataList.xlsx') to biosamples.xml")
+    parser.add_argument("-c", "--convert", metavar="TABLE",
+                        help="Convert TABLE (.xlsx/.xls or .tsv/.tab/.txt) to biosamples.xml")
 
     parser.add_argument("-s", "--submit", action="store_true",
                         help="Submit the XML files using curl")
@@ -330,9 +352,13 @@ def main():
 
     cfg = load_config(args.config)
 
-    excel_path = cfg.get("excel_biosamples")
-    if not excel_path:
-        excel_path = args.convert
+    # excel_path = cfg.get("excel_biosamples")
+    # if not excel_path:
+    #     excel_path = args.convert
+    
+    table_path = cfg.get("data_biosamples")
+    if not table_path:
+        table_path = args.convert
     
     submit = cfg.get("submit")
     if not submit:
@@ -346,10 +372,10 @@ def main():
     if not live:
         live = args.live
     
-
-
-    if excel_path:
-        excel_to_xml(excel_path)
+    # if excel_path:
+    #     excel_to_xml(excel_path)
+    if table_path:
+        excel_to_xml(table_path)
 
     if submit:
         # Load or override credentials
@@ -364,7 +390,7 @@ def main():
         print(f"Using endpoint: {endpoint}")
         submit_data(user, pw, logs, endpoint)
 
-    if not excel_path and not submit:
+    if not table_path and not submit:
         parser.print_help()
 
 

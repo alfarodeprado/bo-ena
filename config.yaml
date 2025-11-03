@@ -1,25 +1,26 @@
+# Runner configuration file for BO ENA submission scripts. Run program by calling either calling set_env's shell, or from FUB's HPC "$sbatch hpc.sh".
+
 credentials: ../credentials.txt
 jar: ../webin-cli-8.2.0.jar
-excel_biosamples: BiosampleList.xlsx
-excel_runs: ExperimentList.xlsx
-excel_analysis: AnalysisList.xlsx
 
-# If not set to True, the scripts will only generate the 
-# files for submission (convert excel, generate xml, gz, etc)
-# Recommended: True
+# Paths to either excel or tsv. The first row of either must be the header with the column names. 
+# Can be either absolute or relative path, from the inside of the ENA object folder that was called.
+data_biosamples: BiosampleList.xlsx
+data_runs: ExperimentList.xlsx
+data_analysis: AnalysisList.xlsx
+
+# If set to False, it will only generate the files for submission (convert excel, generate xml, compress files, etc).
 submit: True
 
-# Leave empty for it to be set at runtime in the terminal with the
-# "--live" flag, or set to True or False here (mind the case)
-# Recommended: True (the objects aren't made public until the study is public)
+# Set to False to submit to the test server (mind the case).
 live: False
 
 # Paths to where you want to store the files for submission.
 # If empty it will be set to the current working directory by default
-# Recommended: empty (defaults to current working directory)
 sub_dir_runs:                             # analysis submission files
 sub_dir_analysis:                         # runs submission files
 
-assembly_level: scaffold                  # scaffold | contig | chromosome
+# Analysis specific parameters.
+assembly_level: chromosome                  # scaffold | contig | chromosome
 mingaplength: 50                          # used only if scaffold & no AGP
 

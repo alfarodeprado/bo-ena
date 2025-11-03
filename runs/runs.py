@@ -21,11 +21,31 @@ def load_config(cfg_path: str = "../config.yaml") -> dict:
             return yaml.safe_load(fh) or {}
     return {}
 
-def convert_manifests(excel_file, submission_dir="submission"):
-    # Load Excel
-    df = pd.read_excel(excel_file, sheet_name=0)
+def load_table(path: str, case: str = "upper"):
+    ext = os.path.splitext(path)[1].lower()
+    if ext in {".xlsx", ".xls"}:
+        df = pd.read_excel(path, sheet_name=0)
+    elif ext in {".tsv", ".tab", ".txt"}:
+        df = pd.read_csv(path, sep="\t")
+    else:
+        sys.exit(f"Unsupported table extension '{ext}'. Use .xlsx/.xls or .tsv/.tab/.txt")
     df.columns = df.columns.str.strip()
-    sample_counts = defaultdict(int) # 
+    if case == "upper":
+        df.columns = df.columns.str.upper()
+    elif case == "lower":
+        df.columns = df.columns.str.lower()
+    return df
+
+# def convert_manifests(excel_file, submission_dir="submission"):
+#     # Load Excel
+#     df = pd.read_excel(excel_file, sheet_name=0)
+#     df.columns = df.columns.str.strip()
+#     sample_counts = defaultdict(int) # 
+
+def convert_manifests(table_file, submission_dir="submission"):
+    # Load table (UPPERCASE headers expected)
+    df = load_table(table_file, case="upper")
+    sample_counts = defaultdict(int)
 
     # Required columns for raw reads submission
     required = [
@@ -35,12 +55,12 @@ def convert_manifests(excel_file, submission_dir="submission"):
     ]
     missing = [c for c in required if c not in df.columns]
     if missing:
-        sys.exit(f"Missing columns in Excel: {', '.join(missing)}")
+        sys.exit(f"Missing columns in table: {', '.join(missing)}")
 
     # Identify file columns (BAM, CRAM, FASTQ, including duplicates like FASTQ1)
     file_cols = [c for c in df.columns if c.upper() in ("BAM", "CRAM") or c.upper().startswith("FASTQ")]
     if not file_cols:
-        sys.exit("No file columns (BAM, CRAM, FASTQ) found in Excel header")
+        sys.exit("No file columns (BAM, CRAM, FASTQ) found in table header")
 
     os.makedirs(submission_dir, exist_ok=True)
     manifest_paths = []
@@ -236,9 +256,13 @@ def main():
         "--config", default="../config.yaml",
         help="Path to YAML config file (default: config.yaml)")
     
+    # p.add_argument(
+    #     "-c", "--convert", metavar="EXCEL",
+    #     help="Convert EXCEL to per‐sample submission/<SAMPLE>/…")
+    
     p.add_argument(
-        "-c", "--convert", metavar="EXCEL",
-        help="Convert EXCEL to per‐sample submission/<SAMPLE>/…")
+        "-c", "--convert", metavar="TABLE",
+        help="Convert TABLE (.xlsx/.xls or .tsv/.tab/.txt) into per-sample submission/<SAMPLE>/…")
     
     p.add_argument(
         "-s", "--submit", action="store_true",
@@ -270,9 +294,12 @@ def main():
 
     # Now, get all arguments from the config file, if empty then from command line, and if empty, then defaults
     # 1. Excel file to convert
-    excel_path = cfg.get("excel_runs")
-    if not excel_path:
-        excel_path = args.convert
+    # excel_path = cfg.get("excel_runs")
+    # if not excel_path:
+    #     excel_path = args.convert
+    table_path = cfg.get("data_runs")
+    if not table_path:
+        table_path = args.convert
     # 2. Submit
     submit = cfg.get("submit")
     if not submit:
@@ -295,8 +322,10 @@ def main():
         live = args.live
 
     manifests = []
-    if excel_path:
-        manifests = convert_manifests(excel_path, sub_dir)
+    # if excel_path:
+    #     manifests = convert_manifests(excel_path, sub_dir)
+    if table_path:
+        manifests = convert_manifests(table_path, sub_dir)
 
     if submit:
         user, pwd = load_credentials(cred_path)
@@ -310,7 +339,7 @@ def main():
                 sys.exit("No manifests found; run with -c your.xlsx first.")
         submit_manifests(manifests, jar, user, pwd, live, logs)
 
-    if not excel_path and not submit:
+    if not table_path and not submit:
         p.print_help()
 
 

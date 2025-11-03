@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=bo-ena
-#SBATCH --mail-user=alfarodea01@zedat.fu-berlin.de
+#SBATCH --mail-user=xxx@zedat.fu-berlin.de
 #SBATCH --output=logs/bo-ena_%j.out
 #SBATCH --error=logs/bo-ena_%j.err
-#SBATCH --time=5:00:00
+#SBATCH --time=1-10:00:00
 #SBATCH --cpus-per-task=1
 #SBATCH --qos=standard
 #SBATCH --mem=4G
@@ -11,7 +11,7 @@
 set -euo pipefail
 
 # Helper to run a selected BO pipeline on FU‑Berlin HPC.
-# Usage: ./hpc.sh {biosamples|analysis|runs}
+# Usage: sbatch /hpc.sh
 
 ######################################################################
 # Possible objects: "biosamples", "analysis", or "runs"

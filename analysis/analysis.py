@@ -22,6 +22,26 @@ def load_config(cfg_path: str = "../config.yaml") -> dict:
             return yaml.safe_load(fh) or {}
     return {}
 
+def load_table(path: str, case: str = "upper"):
+    """
+    Read first-sheet Excel (.xlsx/.xls) or TSV (.tsv/.tab/.txt) into a DataFrame.
+    Normalizes header whitespace and case.
+    """
+    ext = os.path.splitext(path)[1].lower()
+    if ext in {".xlsx", ".xls"}:
+        df = pd.read_excel(path, sheet_name=0)
+    elif ext in {".tsv", ".tab", ".txt"}:
+        df = pd.read_csv(path, sep="\t")
+    else:
+        sys.exit(f"Unsupported table extension '{ext}'. Use .xlsx/.xls or .tsv/.tab/.txt")
+
+    df.columns = df.columns.str.strip()
+    if case == "upper":
+        df.columns = df.columns.str.upper()
+    elif case == "lower":
+        df.columns = df.columns.str.lower()
+    return df
+
 def stage_file(src_path: str, dest_dir: str, mode: str = "cp") -> str:
     """
     Stage `src_path` into `dest_dir`.
@@ -91,19 +111,29 @@ def has_n_gaps(fasta_path, n=50):
             prev = s[-(n-1):]
     return False
 
-def convert_manifests(excel_file: str, submission_dir: str = "submission", default_level: str = "chromosome", default_mingaplength: Optional[int] = None,) -> list:
-    """
-    Convert the analysis Excel to per-sample Webin-CLI submission folders.
+# def convert_manifests(excel_file: str, submission_dir: str = "submission", default_level: str = "chromosome", default_mingaplength: Optional[int] = None,) -> list:
+#     """
+#     Convert the analysis Excel to per-sample Webin-CLI submission folders.
 
-    NEW:
-      - Supports ASSEMBLY_LEVEL per row (contig|scaffold|chromosome) or via config default.
-      - Supports AGP and/or MINGAPLENGTH for scaffold-level submissions.
-      - Only writes CHROMOSOME_LIST for chromosome-level submissions.
+#     NEW:
+#       - Supports ASSEMBLY_LEVEL per row (contig|scaffold|chromosome) or via config default.
+#       - Supports AGP and/or MINGAPLENGTH for scaffold-level submissions.
+#       - Only writes CHROMOSOME_LIST for chromosome-level submissions.
+#     """
+#     # Load Excel
+#     df = pd.read_excel(excel_file, sheet_name=0)
+#     df.columns = df.columns.str.strip()
+#     sample_counts = defaultdict(int)
+
+def convert_manifests(table_file: str, submission_dir: str = "submission", default_level: str = "chromosome", default_mingaplength: Optional[int] = None,) -> list:
     """
-    # Load Excel
-    df = pd.read_excel(excel_file, sheet_name=0)
-    df.columns = df.columns.str.strip()
+    Convert the analysis table (Excel/TSV) to per-sample Webin-CLI submission folders.
+    ...
+    """
+    # Load table (UPPERCASE headers expected by this script)
+    df = load_table(table_file, case="upper")
     sample_counts = defaultdict(int)
+
 
     # Required metadata fields (stay strict to keep templates consistent)
     required = [
@@ -113,7 +143,7 @@ def convert_manifests(excel_file: str, submission_dir: str = "submission", defau
     ]
     missing = [c for c in required if c not in df.columns]
     if missing:
-        sys.exit(f"Missing columns in Excel: {', '.join(missing)}")
+        sys.exit(f"Missing columns in table: {', '.join(missing)}")
 
     # Optional columns the user may provide
     optional_cols = {c.upper() for c in df.columns}
@@ -349,9 +379,12 @@ def main():
         "--config", default="../config.yaml",
         help="Path to YAML config file (default: config.yaml)")
     
+    # p.add_argument(
+    #     "-c", "--convert", metavar="EXCEL",
+    #     help="Convert EXCEL to per‐sample submission/<SAMPLE>/…")
     p.add_argument(
-        "-c", "--convert", metavar="EXCEL",
-        help="Convert EXCEL to per‐sample submission/<SAMPLE>/…")
+        "-c", "--convert", metavar="TABLE",
+        help="Convert TABLE (.xlsx/.xls or .tsv/.tab/.txt) into per-sample submission/<SAMPLE>/…")
     
     p.add_argument(
         "-s", "--submit", action="store_true",
@@ -391,9 +424,12 @@ def main():
 
     # Now, get all arguments from the config file, if empty then from command line, and if empty, then defaults
     # 1. Excel file to convert
-    excel_path = cfg.get("excel_analysis")
-    if not excel_path:
-        excel_path = args.convert
+    # excel_path = cfg.get("excel_analysis")
+    # if not excel_path:
+    #     excel_path = args.convert
+    table_path = cfg.get("data_analysis")
+    if not table_path:
+        table_path = args.convert
     # 2. Submit
     submit = cfg.get("submit")
     if not submit:
@@ -423,9 +459,16 @@ def main():
         default_mingap = args.mingaplength
 
     manifests = []
-    if excel_path:
+    # if excel_path:
+    #     manifests = convert_manifests(
+    #         excel_path,
+    #         submission_dir=sub_dir,
+    #         default_level=default_level,
+    #         default_mingaplength=default_mingap,
+    #     )
+    if table_path:
         manifests = convert_manifests(
-            excel_path,
+            table_path,
             submission_dir=sub_dir,
             default_level=default_level,
             default_mingaplength=default_mingap,
@@ -444,7 +487,7 @@ def main():
                 sys.exit("No manifests found; run with -c your.xlsx first.")
         submit_manifests(manifests, jar, user, pwd, live, logs)
 
-    if not excel_path and not submit:
+    if not table_path and not submit:
         p.print_help()
 
 if __name__ == "__main__":
