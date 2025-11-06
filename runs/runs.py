@@ -36,12 +36,6 @@ def load_table(path: str, case: str = "upper"):
         df.columns = df.columns.str.lower()
     return df
 
-# def convert_manifests(excel_file, submission_dir="submission"):
-#     # Load Excel
-#     df = pd.read_excel(excel_file, sheet_name=0)
-#     df.columns = df.columns.str.strip()
-#     sample_counts = defaultdict(int) # 
-
 def convert_manifests(table_file, submission_dir="submission"):
     # Load table (UPPERCASE headers expected)
     df = load_table(table_file, case="upper")
@@ -67,7 +61,6 @@ def convert_manifests(table_file, submission_dir="submission"):
 
     for idx, row in df.iterrows():
         n = idx + 1
-        #sample_id = str(row["SAMPLE"]).strip()
         # In case there are more than one objects associated with the same sample.
         raw_id = str(row["SAMPLE"]).strip()
         sample_counts[raw_id] += 1
@@ -106,8 +99,6 @@ def convert_manifests(table_file, submission_dir="submission"):
             sys.exit(f"Row {n}: mixed file types in one row: {types}")
         filetype = types.pop()
 
-
-
         # Validate counts
         if filetype in ("BAM", "CRAM") and len(entries) != 1:
             sys.exit(f"Row {n}: {filetype} requires exactly one file entry, got {len(entries)}")
@@ -145,7 +136,6 @@ def convert_manifests(table_file, submission_dir="submission"):
 
             compressed_files.append(gz_name)
 
-
         # Write manifest.txt
         mf = os.path.join(samp_dir, "manifest.txt")
         with open(mf, "w") as fh:
@@ -166,7 +156,6 @@ def convert_manifests(table_file, submission_dir="submission"):
 
     return manifest_paths
 
-
 def prepare_logs_dir(logs_dir="logs"):
     if not os.path.exists(logs_dir):
         os.makedirs(logs_dir)
@@ -175,7 +164,6 @@ def prepare_logs_dir(logs_dir="logs"):
         print(f"Directory '{logs_dir}' already exists.")
     return logs_dir
 
-
 def load_credentials(path):
     if not os.path.isfile(path):
         sys.exit(f"Credentials file not found: {path}")
@@ -183,7 +171,6 @@ def load_credentials(path):
     if len(lines) < 2:
         sys.exit(f"{path} must have username on line 1 and password on line 2")
     return lines[0], lines[1]
-
 
 def find_jar(jar_arg):
     if jar_arg:
@@ -194,7 +181,6 @@ def find_jar(jar_arg):
     if len(webin) == 1:
         return webin[0]
     sys.exit("Auto-detect failed; pass --jar /path/to/webin-cli.jar")
-
 
 def drop_cached_validation(log_subdir: str):
     """
@@ -247,7 +233,6 @@ def submit_manifests(manifests, jar, user, pwd, live, logs_dir):
     
     # remove compressed files?
 
-
 def main():
     p = argparse.ArgumentParser(
         description="reads.py → per‐sample raw‐reads submission folders + Webin-CLI")
@@ -255,10 +240,6 @@ def main():
     p.add_argument(
         "--config", default="../config.yaml",
         help="Path to YAML config file (default: config.yaml)")
-    
-    # p.add_argument(
-    #     "-c", "--convert", metavar="EXCEL",
-    #     help="Convert EXCEL to per‐sample submission/<SAMPLE>/…")
     
     p.add_argument(
         "-c", "--convert", metavar="TABLE",
@@ -293,10 +274,7 @@ def main():
     cfg = load_config(args.config)
 
     # Now, get all arguments from the config file, if empty then from command line, and if empty, then defaults
-    # 1. Excel file to convert
-    # excel_path = cfg.get("excel_runs")
-    # if not excel_path:
-    #     excel_path = args.convert
+    # 1. Excel or tsv file to convert
     table_path = cfg.get("data_runs")
     if not table_path:
         table_path = args.convert
@@ -322,8 +300,6 @@ def main():
         live = args.live
 
     manifests = []
-    # if excel_path:
-    #     manifests = convert_manifests(excel_path, sub_dir)
     if table_path:
         manifests = convert_manifests(table_path, sub_dir)
 
@@ -341,7 +317,6 @@ def main():
 
     if not table_path and not submit:
         p.print_help()
-
 
 if __name__ == "__main__":
     main()
