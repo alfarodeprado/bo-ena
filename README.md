@@ -193,7 +193,7 @@ If you prefer to manage everything yourself:
 
    ```bash
    cd runs
-   python runs.py -c ExperimentList.xlsx -s      -j ../webin-cli-8.2.0.jar      --cred_file ../credentials.txt
+   python runs.py # Parameters are still read from the config file
    ```
 
 In this mode `set_env.py` and `hpc.sh` are not used at all.
