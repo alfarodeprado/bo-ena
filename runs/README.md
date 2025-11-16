@@ -2,14 +2,7 @@
 
 Standalone script to create per-sample submission files from the model excel file, and submitting sequence reads to ENA making use of Webin-CLI.
 
-## Folder Structure
 
-```
-runs/
-├── runs.py
-├── ExperimentList.xlsx
-└── credentials.txt   # (optional) ENA username/password
-```
 
 - **ExperimentList.xlsx** – metadata spreadsheet. Must include a path to one of:
   - `BAM` 
@@ -22,13 +15,6 @@ runs/
   your_ena_password
   ```
 
-## Requirements (only if not running `set_env.py`)
-
-- Python ≥ 3.8  
-- pandas ≥ 1.2 
-- openpyxl ≥ 3.0 (only if you use `--convert`)
-- Java ≥ 17 (to run Webin-CLI JAR for manifest submission)
-
 ## Usage
 
 Run **inside** the `runs/` folder. It will automatically create a folder (`submission/`) with all the submisson files already zipped and ready to submit (each in its own biosample-named folder), and a folder with the logs (`logs/`) so the submission's receipt can be checked.
@@ -39,7 +25,7 @@ A typical command will look like so:
 
 The script submits the reads objects to the **test** site by default, so must use the `--live` flag to submit to ENA.
 
-The path to the reads must have been specified in the excel, so no need to further define it.
+The path to the reads must have been specified in the table file, so no need to further define it.
 
 
 ### Arguments
@@ -47,7 +33,7 @@ The path to the reads must have been specified in the excel, so no need to furth
 
 | Flag                       | Description                                                                                         | Required? |
 |----------------------------|-----------------------------------------------------------------------------------------------------|-----------|
-| `-c`, `--convert`          | Path to Excel file to convert                                                                       | Either/Both       |
+| `-c`, `--convert`          | Path to table file to convert                                                                       | Either/Both       |
 | `-s`, `--submit`           | Submit all `submission/*` files via Webin-CLI                                                       | Either/Both        |
 | `-j`, `--jar`              | Path to Webin-CLI JAR (auto‐detected if omitted)                                                    | Yes        |
 | `--cred_file`              | File with username (line 1) and password (line 2) (default: `credentials.txt`)                      | Yes        |
@@ -72,7 +58,3 @@ submission/
 ```
 
 It will also create the `logs/` folder when using `-s`.
-
----
-
-*Under construction*: merging all scripts into a single entry point later, they must be run each in its own folder for now.

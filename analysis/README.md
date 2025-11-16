@@ -1,18 +1,9 @@
 # Annotation / Sequence ENA submission tool
 
-Standalone script to create per-sample annotation or assembly submission files from the model excel file, and submitting to ENA making use of Webin-CLI.
+Standalone script to create per-sample annotation or assembly submission files from the model table file, and submitting to ENA making use of Webin-CLI.
 
-It is specifically designed to make use of a standardized excel file format, and for submission of plastid annotation / sequences (chromosome list is hardcoded).
+It is specifically designed to make use of a standardized table file format, and for submission of plastid annotation / sequences (chromosome list is hardcoded).
 
-## Folder Structure
-
-```
-analysis/
-├── analysis.py
-├── AssemblyList.xlsx
-├── assembly_file.<fasta|gb|embl>
-└── credentials.txt
-```
 
 - **AssemblyList.xlsx** – metadata spreadsheet. Must include one of:
   - `FLATFILE` (path to `.embl` or `.gb`)  
@@ -25,14 +16,6 @@ analysis/
   your_ena_password
   ```
 
-## Requirements (only if not running `set_env.py`)
-
-- Python ≥ 3.8  
-- pandas ≥ 1.2 
-- openpyxl ≥ 3.0 (only if you use `--convert`)
-- Java ≥ 17 (to run Webin-CLI JAR for manifest submission)
-- Biopython ≥ 1.78 (optional, only if you don't already supply the annotation in `.embl` format)
-
 ## Usage
 
 Run **inside** the `analysis/` folder. It will automatically create a folder (`submission/`) with all the submisson files already zipped and ready to submit (each in its own biosample-named folder), and a folder with the logs (`logs/`) so the submission's receipt can be checked.
@@ -41,7 +24,7 @@ A typical command will look like so:
 
 `python analysis.py -c "(path/to/)AssemblyList.xlsx" -s -j "(path/to/)webin-cli-8.2.0.jar" --cred_file "(path/to/)credentials.txt"`.
 
-The path to the assembly file or FASTA is specified in the excel, so no need to further define it.
+The path to the assembly file or FASTA is specified in the table file, so no need to further define it.
 
 The script submits the analysis objects to the test site by default, so must use the `--live` flag to submit to ENA.
 
@@ -50,7 +33,7 @@ The script submits the analysis objects to the test site by default, so must use
 
 | Flag                       | Description                                                                                         | Required? |
 |----------------------------|-----------------------------------------------------------------------------------------------------|-----------|
-| `-c`, `--convert`          | Path to Excel file to convert (e.g. `AssemblyList.xlsx`)                                                 | Either/Both       |
+| `-c`, `--convert`          | Path to table file to convert (e.g. `AssemblyList.xlsx`)                                                 | Either/Both       |
 | `-s`, `--submit`           | Submit all `submission/*` files via Webin-CLI                                           | Either/Both        |
 | `-j`, `--jar`              | Path to Webin-CLI JAR (auto‐detected if omitted)                                                     | Yes        |
 | `--cred_file`              | File with username (line 1) and password (line 2) (default: `credentials.txt`)                       | Yes        |
@@ -77,7 +60,3 @@ submission/
 ```
 
 It will also create the `logs/` folder when using `-s`.
-
----
-
-*Under construction*: merging all scripts into a single entry point later, they must be run each in its own folder for now.

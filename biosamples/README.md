@@ -2,16 +2,8 @@
 
 This is a standalone script for generating and submitting ENA BioSamples XML from a metadata spreadsheet.
 
-It is specifically designed to make use of a standardized excel file format, and for submission of plastid biosamples (biosample attribute checklist is hardcoded, etc).
+It is specifically designed to make use of a standardized table file format, and for submission of plastid biosamples (biosample attribute checklist is hardcoded, etc).
 
-## Folder Structure
-
-```
-biosamples/
-├── biosamples.py
-├── MetadataList.xlsx
-└── credentials.txt   # (optional) ENA username/password
-```
 
 - **MetadataList.xlsx** – your metadata table. Column headers must match the `expected_fields` list in `biosamples.py`.  
 - **credentials.txt** – plain text file with two lines:
@@ -20,13 +12,6 @@ biosamples/
   your_ena_password
   ```
   Or supply `-u`/`--user` and `-p`/`--password` on the command line instead.
-
-## Requirements (only if not running `set_env.py`)
-
-- Python ≥ 3.8  
-- pandas ≥ 1.2  
-- openpyxl ≥ 3.0  (only if you use `--convert`)
-- curl ≥ 7.0 (only if you use `--submit`)
 
 ## Usage
 
@@ -41,7 +26,7 @@ It also has the `<HOLD/>` action by default, which submits the biosamples on pri
 
 | Flag                     | Description                                                                                   | Required? |
 |--------------------------|-----------------------------------------------------------------------------------------------|-----------|
-| `-c`, `--convert`        | Path to Excel file to convert (e.g. `MetadataList.xlsx`)                                       | Either/Both       |
+| `-c`, `--convert`        | Path to table file to convert (e.g. `MetadataList.xlsx`)                                       | Either/Both       |
 | `-s`, `--submit`         | Submit the generated XML files via `curl`                                                      | Either/Both        |
 | `--cred_file`            | Path to credentials file (username on line 1, password on line 2); default: `credentials.txt`  | No        |
 | `-u`, `--username`       | ENA username (overrides `--cred_file` if provided)                                             | No        |
@@ -57,7 +42,3 @@ The code will create:
 - A `submission.xml` file with the actions (submit and hold)
 - A `biosample_accessions.txt` file with all the accession codes from the submitted samples
 - (With `--submit`) receipt files in `logs/`
-
----
-
-*Under construction*: merging all scripts into a single entry point later, they must be run each in its own folder for now.

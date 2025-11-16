@@ -8,7 +8,7 @@ Small collection of scripts to help submit to ENA:
 
 using plain Python + Webin-CLI (for reads/assemblies) or `curl` (for biosamples).
 
-The scripts were originally written for plastid data; apart from a plastid-friendly default for chromosome-level assemblies (the chromosome list defaults to a circular plastid chromosome unless you override CHR_NAME / CHR_TYPE / CHR_LOCATION), they are generic and work for any organism as long as your metadata tables follow the expected columns.
+The scripts were originally written for plastid plant data. At the moment, biosamples.py is tied to the ENA plant checklist ERC000037 and plant-specific attributes, and chromosome-level assemblies default to a plastid chromosome unless you override CHR_NAME / CHR_TYPE / CHR_LOCATION. Apart from that, the logic is generic and can be used for other organisms as long as your metadata tables follow the expected columns.
 
 
 ## Folder layout
