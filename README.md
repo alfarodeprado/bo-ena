@@ -1,4 +1,4 @@
-# bo-ena – ENA submission helper (biosamples, reads, assemblies)
+# ENflorA – ENA submission helper (biosamples, reads, assemblies)
 
 Small collection of scripts to help submit to ENA:
 
@@ -16,7 +16,7 @@ The scripts were originally written for plastid plant data. At the moment, biosa
 Expected layout in the main working directory:
 
 ```text
-bo-ena/
+ENflorA/
 ├── biosamples/
 │   ├── biosamples.py
 │   └── BiosampleList.xlsx    // .tsv
