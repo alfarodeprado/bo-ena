@@ -17,6 +17,30 @@ WARNING 2: Prior to running ENflorA, the user must have a study number, or creat
 WARNING 3: The scripts were originally written for plastid plant data. At the moment, `biosamples.py` is tied to the ENA plant checklist ERC000037 and plant-specific attributes. In `analysis.py`, chromosome-level submissions default to a single plastid circular chromosome (CHR_NAME=1, CHR_TYPE=Circular-Chromosome, CHR_LOCATION=Plastid) if no chromosome columns are provided. To use nuclear or other chromosomes, simply add `CHR_NAME`, `CHR_TYPE`, and `CHR_LOCATION` columns to your analysis table; their values are written directly into chr_list.txt. Apart from that, the logic is generic and can be used for other organisms as long as your metadata tables follow the expected columns.
 
 
+## Index
+
+* [Folder layout](#folder-layout)
+* [What each script does](#what-each-script-does)
+
+  * [`hpc.sh`](#hpch)
+  * [`biosamples/biosamples.py`](#biosamplesbiosamplespy)
+  * [`runs/runs.py`](#runsrunspy)
+  * [`analysis/analysis.py`](#analysisanalysispy)
+  * [`lftp_sub.sh` (optional helper)](#lftp_subsh-optional-helper)
+* [How to run](#how-to-run)
+
+  * [1. Curta HPC via `hpc.sh` (FU Berlin)](#1-curta-hpc-via-hpcsh-fu-berlin)
+  * [2. Local / other HPC using `set_env.py`](#2-local--other-hpc-using-set_envpy)
+  * [3. Manual environment (no `set_env.py`)](#3-manual-environment-no-set_envpy)
+* [Configuration (`config.yaml`)](#configuration-configyaml)
+* [Requirements](#requirements)
+
+  * [Common to all modes](#common-to-all-modes)
+  * [If not running on the HPC](#if-not-running-on-the-hpc)
+* [Optional `lftp_sub.sh`](#optional-lftp_subsh)
+* [Logs and receipts](#logs-and-receipts)
+
+
 ## Folder layout
 
 Expected layout in the main working directory:
