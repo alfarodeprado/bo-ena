@@ -6,9 +6,15 @@ Small collection of scripts to help submit to ENA:
 - **Raw reads** (Experiments + Runs)
 - **Assemblies / annotations** (Analyses)
 
-using plain Python + Webin-CLI (for reads/assemblies) or `curl` (for biosamples).
+using plain Python + Webin-CLI (for reads/assemblies) or `curl` (for biosamples). For a better understanding and documentation of the different ENA object types, please consult:  
+`https://ena-docs.readthedocs.io/en/latest/submit/general-guide/metadata.html`
 
-The scripts were originally written for plastid plant data. At the moment, biosamples.py is tied to the ENA plant checklist ERC000037 and plant-specific attributes, and chromosome-level assemblies default to a plastid chromosome unless you override CHR_NAME / CHR_TYPE / CHR_LOCATION. Apart from that, the logic is generic and can be used for other organisms as long as your metadata tables follow the expected columns.
+WARNING 1: Almost all data should be stored in either an Excel or tsv file. The column names and values are all defined inside the template excel, in the INFO sheet.
+
+WARNING 2: Prior to running ENflorA, the user must have a study number, or create one themselves, as per ENA, all ENA object types except biosamples must be associated with a study. This can be done at:  
+`https://www.ebi.ac.uk/ena/submit/webin/`
+
+WARNING 3: The scripts were originally written for plastid plant data. At the moment, `biosamples.py` is tied to the ENA plant checklist ERC000037 and plant-specific attributes. In `analysis.py`, chromosome-level submissions default to a single plastid circular chromosome (CHR_NAME=1, CHR_TYPE=Circular-Chromosome, CHR_LOCATION=Plastid) if no chromosome columns are provided. To use nuclear or other chromosomes, simply add `CHR_NAME`, `CHR_TYPE`, and `CHR_LOCATION` columns to your analysis table; their values are written directly into chr_list.txt. Apart from that, the logic is generic and can be used for other organisms as long as your metadata tables follow the expected columns.
 
 
 ## Folder layout
@@ -32,7 +38,7 @@ ENflorA/
 ├── config.yaml                 # shared config for all scripts
 ├── set_env.py                  # creates/updates env/ folder for Python dependencies
 ├── hpc.sh                      # Main script to use when using FUB's HPC
-├── lftp_sub.sh                 # script to upload via lftp if main scripts fail (only reads)
+├── lftp_sub.sh                 # optional script to upload (only reads) via lftp if main scripts fail
 ├── credentials.txt             # Webin username (line 1) + password (line 2)
 ├── webin-cli-*.jar             # Webin-CLI JAR
 └── README.md
@@ -42,26 +48,37 @@ The Webin CLI jar file can be downloaded from `https://github.com/enasequence/we
 
 ## What each script does
 
+### `hpc.sh`
+
+- Only one parameter must be set inside, `ena_object`, which it calls.
+- Can be called as a bash script or as a slurm job.
+- Script to run any of the following ENA object uploaders from FUB's HPC.
+
+
+
 ### `biosamples/biosamples.py`
 
+- Keys in `config.yaml`: `data_biosamples`, `credentials`, `submit`, `live`.
 - Input: a metadata table (`BiosampleList.xlsx` or `.tsv`) with a header, and one row per biosample.
 - Outputs:
   - `biosamples.xml`
   - `submission.xml`
   - optional submission to ENA’s BioSamples service (via `curl`).
-- Keys in `config.yaml`: `data_biosamples`, `credentials`, `submit`, `live`.
+
 
 ### `runs/runs.py`
 
+- Keys in `config.yaml`: `data_runs`, `sub_dir_runs`, `credentials`, `jar`, `submit`, `live`.
 - Input: table of read libraries (`ExperimentList.xlsx` / `.tsv`) with paths to FASTQ/BAM/CRAM.
 - Outputs:
   - Per-sample `submission/<SAMPLE_ACCESSION>/manifest.txt`
   - Staged and optionally compressed read files inside `submission/<SAMPLE>/`
   - optional submission of all manifests via Webin-CLI (`-context reads`).
-- Keys in `config.yaml`: `data_runs`, `sub_dir_runs`, `credentials`, `jar`, `submit`, `live`.
+
 
 ### `analysis/analysis.py`
 
+- Keys in `config.yaml`: `data_analysis`, `sub_dir_analysis`, `credentials`, `jar`, `submit`, `live`, `assembly_level`, `mingaplength`.
 - Input: table of assemblies/annotations (`AnalysisList.xlsx` / `.tsv`) with paths to FASTA or EMBL/GenBank.
 - Outputs:
   - Per-sample `submission/<SAMPLE_ACCESSION>/manifest.txt`
@@ -70,17 +87,20 @@ The Webin CLI jar file can be downloaded from `https://github.com/enasequence/we
 - Handles:
   - GenBank → EMBL conversion via Biopython if needed.
   - `assembly_level` and `mingaplength` logic for contig/scaffold/chromosome assemblies.
-- Keys in `config.yaml`: `data_analysis`, `sub_dir_analysis`, `credentials`, `jar`, `submit`, `live`, `assembly_level`, `mingaplength`.
+
 
 ### `lftp_sub.sh` (optional helper)
 
+- Parameters must be set inside script.
 - Independent helper that:
   - finds raw data files under given input paths,
   - compresses them (if needed),
   - makes `.md5` checksum files,
   - uploads everything via `lftp` to a Webin FTP folder,
-  - writes a TSV (`remote_path<TAB>md5`) you can paste into ENA templates.
-- It does **not** call the Python scripts or Webin-CLI and can be used standalone.
+  - writes a TSV (`remote_path <TAB> md5`) you can paste into ENA templates.
+- It does **not** call the Python scripts or Webin-CLI, it's a standalone script.
+- It requires the user to manually download the tsv template, and then upload to ENA, pasting in it the `remote_path` from the produced tsv. This can be done at their webpage, in the `Raw Reads (Experiments and Runs)` section:  
+`https://www.ebi.ac.uk/ena/submit/webin/`
 
 
 ## How to run
@@ -100,11 +120,11 @@ Use this if you are on FU Berlin’s Curta cluster and want everything handled a
    ena_object="analysis"
    ```
 
-2. From the project root:
+2. Then, from the project root run:
 
    ```bash
-   mkdir -p logs # Here go the slurm log files
-   sbatch hpc.sh # This sends the job to the queue
+   mkdir -p logs          # Here go the slurm log files
+   sbatch hpc.sh          # This sends the job to the queue
    ```
 
    It can be run on the login node for a quick non-Slurm test or light submissions, but recommended to go through slurm anyway:
@@ -113,7 +133,7 @@ Use this if you are on FU Berlin’s Curta cluster and want everything handled a
    bash hpc.sh
    ```
 
-What running through `hpc.sh` does:
+What running through `hpc.sh` actually does:
 
 - Loads Curta modules:
 
@@ -217,21 +237,21 @@ live:   False
 sub_dir_runs:
 sub_dir_analysis:
 
-assembly_level: chromosome   # contig | scaffold | chromosome
-mingaplength: 50             # used only if scaffold & no AGP
+assembly_level: chromosome        # contig | scaffold | chromosome
+mingaplength: 50                  # used only if scaffold & no AGP
 ```
 
-**Precedence rules (important):**
+**Parameters, precedence rules (important):**
 
 For each script:
 
 1. It first looks in the config file for a value (e.g. `data_runs`).
-2. If the config value is missing or empty, it falls back to the command‑line argument.
+2. If the value in the config file is missing or empty, it falls back to the command‑line argument.
 3. If both are unset, the script’s internal default is used.
 
 So a non-empty config value **overrides** the corresponding CLI argument. In practical terms:
 
-- If you want to control something via CLI, leave the relevant key empty or remove it from `config.yaml`.
+- If you want to control something via the command line, leave the relevant key empty or remove it from `config.yaml`.
 - If you want to centralize settings, define them in `config.yaml` and call scripts with minimal flags.
 
 
