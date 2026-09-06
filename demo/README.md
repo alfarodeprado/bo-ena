@@ -170,6 +170,14 @@ demo/
 plant checklist (ERC000037) pre-filled. The only thing you *must* change is
 the `isolate` (cell A2) to avoid alias collisions.
 
+The demo validates against `../biosamples/ERC000037.xml`, set by the
+`checklist` key in `demo/config.yaml`. Point that key at any other ENA sample
+checklist XML, with a table to match, to try a different one. `demo/config.yaml`
+also carries the same `extra_mandatory`, `defaults` and `column_aliases` blocks
+as the main config, because the demo table uses the same house column names as
+`BiosampleList.xlsx` — if you copy this config as a starting point and drop
+those blocks, your columns will stop matching.
+
 **DemoExperimentList.xlsx** — One paired-end read row. Yellow-highlighted
 cells (STUDY, SAMPLE) are placeholders that need real accessions. The FASTQ
 paths already point to the bundled files.

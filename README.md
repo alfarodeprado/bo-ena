@@ -2,12 +2,14 @@
 
 ENflorA is a small set of Python scripts that help you submit biological
 sequencing data to the [European Nucleotide Archive (ENA)](https://www.ebi.ac.uk/ena/browser/home).
-You fill in spreadsheets (Excel or TSV) with your metadata, point the scripts
-at your sequence files, and ENflorA handles XML generation, file compression,
-manifest creation, and submission.
+You fill in spreadsheets (Excel, CSV or TSV) with your metadata, point the
+scripts at your sequence files, and ENflorA handles XML generation, file
+compression, manifest creation, and submission.
 
-It was originally built for plastid genome projects, but works for any organism
-with minor adjustments (see [Adapting to non-plant data](#adapting-to-non-plant-data)).
+It was originally built for plastid genome projects, but works for any
+organism: sample metadata is driven by whichever ENA checklist you point it at,
+with no code changes (see [Using a different
+checklist](#using-a-different-checklist)).
 
 For background on ENA's object types and metadata model, see the
 [ENA submission documentation](https://ena-docs.readthedocs.io/en/latest/submit/general-guide/metadata.html).
@@ -27,15 +29,16 @@ For background on ENA's object types and metadata model, see the
   - [`analysis.py`](#analysispy)
   - [`hpc.sh`](#hpcsh)
   - [`lftp_sub.sh` (optional)](#lftp_subsh-optional)
-- [Adapting to non-plant data](#adapting-to-non-plant-data)
+- [Using a different checklist](#using-a-different-checklist)
 - [Logs and receipts](#logs-and-receipts)
 
 
 ## How it works
 
 ENflorA mirrors ENA's own data model. There are three scripts, each handling
-one type of ENA object, and **they must be run in this order** because each
-step produces accession IDs that the next step needs:
+one type of ENA object. They are **independent of each other**: run one, two,
+or all three. When you do submit everything from scratch, this is the order,
+because each step produces accession IDs the next one needs:
 
 ```
  1. Create a Study on ENA         (manual, one-time, via the Webin Portal)
@@ -47,10 +50,13 @@ step produces accession IDs that the next step needs:
  4. analysis.py                   → uploads your assemblies/annotations
 ```
 
-You don't have to run all three. If your samples are already registered on ENA,
-skip `biosamples.py` and put the existing SAMEA accessions directly into your
-runs spreadsheet. Same for analysis — if your reads are already in ENA, just
-reference those run accessions.
+You don't have to run all three, and the relationships are not one-to-one:
+several read sets can belong to one sample, samples can be reused across
+studies, and an assembly can be built on reads submitted by someone else. So
+running a single step on its own is a normal case, not an exception. If your
+samples are already registered on ENA, skip `biosamples.py` and put the
+existing sample accessions straight into your runs table. Same for analysis:
+if your reads are already in ENA, just reference those run accessions.
 
 ### What each step does
 
@@ -75,9 +81,10 @@ contig, scaffold, and chromosome-level submissions. Returns one ERZ accession
 per assembly.
 
 Each spreadsheet template has a `DATA` sheet (where you fill in your rows) and
-an `INFO` sheet explaining every column. If you prefer plain text, the scripts
-also accept tab-separated files (`.tsv`, `.tab`, or `.txt`) with the same
-column headers.
+an `INFO` sheet explaining every column. Plain text works everywhere a table is
+read: all three scripts accept Excel (`.xlsx`, `.xls`), comma-separated
+(`.csv`) and tab-separated (`.tsv`, `.tab`, `.txt`) files with the same column
+headers.
 
 
 ## Requirements
@@ -189,7 +196,7 @@ All three scripts share a single YAML config in the repo root:
 credentials: ../credentials.txt
 jar: ../webin-cli-8.2.0.jar
 
-# Paths to input tables. Can be .xlsx, .xls, .tsv, .tab, or .txt
+# Paths to input tables. Can be .xlsx, .xls, .csv, .tsv, .tab, or .txt
 data_biosamples: BiosampleList.xlsx
 data_runs:       ExperimentList.xlsx
 data_analysis:   AnalysisList.xlsx
@@ -201,9 +208,24 @@ sub_dir_biosamples:               # where biosamples XMLs and accessions go
 sub_dir_runs:                     # where runs submission folders go
 sub_dir_analysis:                 # where analysis submission folders go
 
+# --- biosamples only ---
+checklist: ERC000037.xml          # the ENA sample checklist to validate against
+
+extra_mandatory:                  # optional: fields you require, ENA doesn't
+  - bio_material
+  - altitude
+defaults:                         # optional: value used when a cell is empty
+  plant growth medium: soil
+column_aliases:                   # optional: your column name -> checklist field
+  latitude: geographic location (latitude)
+
 assembly_level: chromosome        # contig | scaffold | chromosome
 mingaplength: 50                  # used only if scaffold & no AGP
 ```
+
+`checklist` is the only new key you have to set, and only if you are not
+submitting plants. The three below it are optional; see [Keeping your own
+column names and rules](#keeping-your-own-column-names-and-rules).
 
 **Precedence:** each script checks the config file first. If a value is missing
 or empty, it falls back to the command-line argument. If both are unset, the
@@ -222,6 +244,8 @@ All data paths are resolved relative to the script's working directory (i.e.
 ENflorA/
 ├── biosamples/
 │   ├── biosamples.py
+│   ├── make_table.py            # builds a blank table from a checklist
+│   ├── ERC000037.xml            # ENA plant checklist (the default)
 │   └── BiosampleList.xlsx       # template — fill in DATA sheet
 ├── runs/
 │   ├── runs.py
@@ -254,19 +278,35 @@ are gitignored.
 
 | | |
 |---|---|
-| **Config keys** | `data_biosamples`, `sub_dir_biosamples`, `credentials`, `submit`, `live` |
-| **Input** | `BiosampleList.xlsx` or `.tsv`/`.tab`/`.txt` — one row per sample |
+| **Config keys** | `data_biosamples`, `checklist`, `sub_dir_biosamples`, `credentials`, `submit`, `live`, plus the optional `extra_mandatory`, `defaults`, `column_aliases` |
+| **Input** | `BiosampleList.xlsx`, `.csv` or `.tsv`/`.tab`/`.txt` — one row per sample — and an ENA checklist XML |
 | **Outputs** | `submission/biosamples.xml`, `submission/submission.xml`, `submission/biosample_accessions.txt` |
 | **Submits via** | `curl` to ENA's REST API |
 
-The biosamples spreadsheet uses ENA's plant checklist
-[ERC000037](https://www.ebi.ac.uk/ena/browser/view/ERC000037). See [Adapting
-to non-plant data](#adapting-to-non-plant-data) if you're working with other
-organisms.
+The columns ENflorA expects, and which of them are mandatory, come from the
+checklist XML named by the `checklist` config key. The repo ships with ENA's
+plant checklist [ERC000037](https://www.ebi.ac.uk/ena/browser/view/ERC000037)
+configured; see [Using a different checklist](#using-a-different-checklist) for
+anything else. Each sample is tagged with the accession of whichever checklist
+was used, so the two can never disagree.
 
 Accessions are appended to `biosample_accessions.txt` across runs (not
-overwritten), with deduplication and a `(test)` suffix for test-server
-submissions.
+overwritten), with deduplication. A `server` column records whether each
+accession came from the test or the live endpoint — test accessions do not
+exist on the live server, so never copy one into a live submission.
+
+### `make_table.py`
+
+| | |
+|---|---|
+| **Config keys** | `checklist`, `data_biosamples`, `extra_mandatory` |
+| **Input** | an ENA sample checklist XML |
+| **Outputs** | a blank `.xlsx` (with `DATA` and `INFO` sheets), or a `.csv`/`.tsv` plus a companion `_INFO` file |
+| **Submits via** | nothing — it never contacts ENA |
+
+A one-off helper, run before `biosamples.py` when you need a table for a
+checklist you have none for. Options: `--checklist`, `-o`, `--all-fields`,
+`--force`. See [Using a different checklist](#using-a-different-checklist).
 
 ### `runs.py`
 
@@ -303,8 +343,9 @@ On successful submission, accessions are printed to the terminal and appended to
 ### `hpc.sh`
 
 SLURM job script for FU Berlin's Curta cluster. Set `ena_object` to
-`biosamples`, `runs`, or `analysis` inside the script, then `sbatch hpc.sh`.
-For demo mode, also set `demo="true"`.
+`biosamples`, `runs`, `analysis` or `make_table` inside the script, then
+`sbatch hpc.sh`. For demo mode, also set `demo="true"` (`make_table` ignores
+it, since it never contacts ENA).
 
 It loads the necessary modules (Python 3.11, Java 21), calls `set_env.py` to
 build the virtual environment, activates it, and runs the chosen script. You
@@ -331,24 +372,135 @@ afterwards. The workflow is:
 Requirements: `bash`, `lftp`, `pigz` or `gzip`, `md5sum`.
 
 
-## Adapting to non-plant data
+## Using a different checklist
 
-Most of the pipeline is organism-agnostic. Two things have plant-specific
-defaults:
+ENA describes every sample against a **checklist**: a list of metadata fields,
+some of them mandatory, chosen to suit a kind of organism or sample. Which one
+you need depends on what you are submitting. ENflorA ships configured for the
+plant checklist [ERC000037](https://www.ebi.ac.uk/ena/browser/view/ERC000037),
+but any ENA sample checklist works, and switching does not involve editing any
+code.
 
-1. **`biosamples.py`** uses ENA checklist
-   [ERC000037](https://www.ebi.ac.uk/ena/browser/view/ERC000037) and expects
-   plant-specific columns (`plant structure`, `plant developmental stage`,
-   etc.). To adapt, modify the `expected_fields`, `mandatory`, and
-   `recommended` lists in `biosamples.py`, and change the `ENA-CHECKLIST`
-   value to match your target checklist.
+If you are submitting plants, skip this section. `ERC000037.xml` and a
+ready-made `BiosampleList.xlsx` are already in the repo and `config.yaml`
+already points at them.
 
-2. **`analysis.py`** defaults to a single circular plastid chromosome for
-   chromosome-level submissions. To use nuclear or other chromosomes, add
-   `CHR_NAME`, `CHR_TYPE`, and `CHR_LOCATION` columns to your analysis
-   spreadsheet — their values are written directly into `chr_list.txt`.
+For anything else:
 
-`runs.py` requires no changes for any organism.
+1. **Download your checklist.** Browse
+   [ENA's checklist list](https://www.ebi.ac.uk/ena/browser/checklists), pick
+   the one that fits your samples, and download its XML. Put it wherever you
+   like, `biosamples/` is the obvious place.
+
+2. **Point the config at it,** and at the table you want to create:
+
+   ```yaml
+   checklist: ERC000019.xml
+   data_biosamples: MySampleList.xlsx
+   ```
+
+3. **Generate a blank table:**
+
+   ```bash
+   cd biosamples
+   python make_table.py
+   ```
+
+   This writes `MySampleList.xlsx` with one column per checklist field, an
+   `INFO` sheet documenting every field, and a `[unit]` column beside each
+   field that takes a unit. Fill a `[unit]` cell in and that unit is used. Leave
+   it empty and the checklist's own unit is used, where the checklist offers
+   exactly one. Fields offering a choice of units (say `mm` or `m`) and left
+   empty are submitted without a unit rather than guessed at, so fill those in.
+
+   `make_table.py` will not overwrite an existing file; use `-o` to write
+   elsewhere, or `--force` if you really mean it. By default only the
+   mandatory and recommended fields become columns, since a large checklist can
+   have over a hundred; `--all-fields` includes the optional ones too, and any
+   field left out is still listed on `INFO` so you can add it as a column
+   yourself.
+
+4. **Fill it in,** one row per sample.
+
+5. **Submit as usual:**
+
+   ```bash
+   python biosamples.py
+   ```
+
+   `biosamples.py` reads the same checklist XML, checks your table against it,
+   and tags each sample with the right checklist accession automatically.
+
+### Three columns you will not find in any checklist
+
+Every ENA sample needs these regardless of checklist, because they belong to
+ENA's sample record rather than to the checklist's field list. `make_table.py`
+always puts them first:
+
+| Column | Becomes |
+|---|---|
+| `isolate` | the sample alias — must be unique within your Webin account |
+| `organism` | the sample title |
+| `taxon_id` | the [NCBI taxonomy](https://www.ncbi.nlm.nih.gov/taxonomy) ID |
+
+### What is checked, and what is not
+
+Mandatory fields must be present and filled in for every sample, or the run
+stops. Missing recommended fields produce a note. Empty recommended and
+optional cells are simply not submitted. Any column that matches no checklist
+field is submitted as a free sample attribute, which is how ENA handles extras
+like `bio_material`.
+
+Two samples sharing an `isolate` stops the run, naming both rows, since ENA
+rejects a submission carrying the same alias twice.
+
+ENflorA does not check value formats or controlled vocabularies. ENA's own
+validator does that when you submit, so a table ENflorA accepts can still be
+rejected by ENA.
+
+### Keeping your own column names and rules
+
+Three optional config keys let a group keep its own conventions without
+touching the code. All three are how the bundled plant setup works, so
+`config.yaml` doubles as a worked example.
+
+```yaml
+extra_mandatory:                  # required by you, though ENA calls them optional
+  - bio_material
+  - altitude
+
+defaults:                         # used when a cell is left empty
+  plant growth medium: soil
+
+column_aliases:                   # your column name -> checklist field
+  latitude:  geographic location (latitude)
+  longitude: geographic location (longitude)
+  country:   geographic location (country and/or sea)
+  locality:  geographic location (region and locality)
+  region:    geographic location (region and locality)
+```
+
+A field with a `defaults` entry never blocks a submission, even if it is
+mandatory and even if its column is missing entirely. Two aliases may point at
+the same checklist field, in which case the values are joined with `", "` in
+the order listed, which is how `locality` and `region` become one ENA field.
+Aliases only apply when the source column is actually present, so leaving a
+stale block in the config after switching checklists does no harm.
+
+If your group will submit under the same checklist for years, consider building
+a proper template by hand, as `BiosampleList.xlsx` is: descriptions, examples,
+and column names your people already recognise, kept stable through
+`column_aliases`. A generated table is the fast path, not necessarily the best
+long-term one.
+
+### One other plant default
+
+`analysis.py` assumes a single circular plastid chromosome for chromosome-level
+submissions. For nuclear or other chromosomes, add `CHR_NAME`, `CHR_TYPE` and
+`CHR_LOCATION` columns to your analysis table; their values are written
+straight into `chr_list.txt`.
+
+`runs.py` needs no changes for any organism.
 
 
 ## Logs and receipts

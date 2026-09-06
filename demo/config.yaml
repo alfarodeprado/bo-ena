@@ -15,7 +15,29 @@ data_biosamples: ../demo/DemoBiosampleList.xlsx
 data_runs:       ../demo/DemoExperimentList.xlsx
 data_analysis:   ../demo/DemoAnalysisList.xlsx
 
-# Always submit, never live: demo data goes to the test server only.
+# The ENA sample checklist to validate the demo samples against. The demo table
+# follows the plant checklist that ships with ENflorA; point this at another
+# checklist XML (and use a matching table) to try a different one.
+checklist: ../biosamples/ERC000037.xml
+
+# Set up house settings, like in the main config, so the demo table behaves like a real one.
+extra_mandatory:
+  - bio_material
+  - altitude
+
+# Set default values for any missing columns in the demo table. These are used to fill in the demo table's empty cells, so that the demo submission passes validation.
+defaults:
+  plant growth medium: soil
+
+# Set up column aliases to match the demo table's headers to the ENA sample checklist's expected names.
+column_aliases:
+  latitude:  geographic location (latitude)
+  longitude: geographic location (longitude)
+  country:   geographic location (country and/or sea)
+  locality:  geographic location (region and locality)
+  region:    geographic location (region and locality)
+
+# Always submit, never live, so that the demo data goes to the test server only.
 submit: True
 live:   False
 

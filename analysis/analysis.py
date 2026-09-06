@@ -37,17 +37,22 @@ def load_config(cfg_path: str = "../config.yaml") -> dict:
 
 def load_table(path: str, case: str = "upper"):
     """
-    Read first-sheet Excel (.xlsx/.xls) or TSV (.tsv/.tab/.txt) into a DataFrame.
+    Read first-sheet Excel (.xlsx/.xls), CSV (.csv) or TSV (.tsv/.tab/.txt) into a DataFrame.
     Normalizes header whitespace and case.
     """
     vlog(f"Reading table: {os.path.abspath(path)}")
     ext = os.path.splitext(path)[1].lower()
     if ext in {".xlsx", ".xls"}:
         df = pd.read_excel(path, sheet_name=0)
+    elif ext == ".csv":
+        df = pd.read_csv(path, sep=",")
     elif ext in {".tsv", ".tab", ".txt"}:
         df = pd.read_csv(path, sep="\t")
     else:
-        sys.exit(f"Unsupported table extension '{ext}'. Use .xlsx/.xls or .tsv/.tab/.txt")
+        sys.exit(
+            f"Unsupported table extension '{ext}'. "
+            "Use .xlsx/.xls, .csv, or .tsv/.tab/.txt"
+        )
 
     df.columns = df.columns.str.strip()
     if case == "upper":

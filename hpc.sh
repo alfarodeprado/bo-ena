@@ -15,7 +15,9 @@ set -euo pipefail
 
 ######################################################################
 ######################################################################
-# Possible objects: "biosamples", "analysis", or "runs"
+# Possible objects: "biosamples", "analysis", "runs", or "make_table"
+# ("make_table" is the one-off helper that builds a blank metadata table from
+#  an ENA checklist XML; it never contacts ENA and ignores the demo setting)
 ena_object=""
 # Set to "true" to run in demo mode (uses bundled test data + test server)
 demo="true"
@@ -38,12 +40,13 @@ source env/bin/activate
 run_script() {
   local dir="$1"
   local ena_object="$2"
-  local extra_flags=""
   if [ "$demo" = "true" ]; then
-    extra_flags="--demo"
+    echo "--- Running ${dir}/${ena_object} --demo ---"
+    ( cd "$dir" && python "$ena_object" --demo )
+  else
+    echo "--- Running ${dir}/${ena_object} ---"
+    ( cd "$dir" && python "$ena_object" )
   fi
-  echo "--- Running ${dir}/${ena_object} ${extra_flags} ---"
-  ( cd "$dir" && python "$ena_object" "$extra_flags" )
 }
 
 # Dispatch based on ena_object
@@ -57,9 +60,14 @@ case "$ena_object" in
   runs)
     run_script "runs" "runs.py"
     ;;
+  make_table)
+    # One-off helper, no submission and no demo mode.
+    echo "--- Running biosamples/make_table.py ---"
+    ( cd "biosamples" && python "make_table.py" )
+    ;;
   *)
     echo "Error: Unknown script '$ena_object'."
-    echo "Usage: $0 {biosamples|analysis|runs}"
+    echo "Usage: $0 {biosamples|analysis|runs|make_table}"
     exit 1
     ;;
 esac

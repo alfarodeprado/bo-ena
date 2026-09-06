@@ -39,10 +39,15 @@ def load_table(path: str, case: str = "upper"):
     ext = os.path.splitext(path)[1].lower()
     if ext in {".xlsx", ".xls"}:
         df = pd.read_excel(path, sheet_name=0)
+    elif ext == ".csv":
+        df = pd.read_csv(path, sep=",")
     elif ext in {".tsv", ".tab", ".txt"}:
         df = pd.read_csv(path, sep="\t")
     else:
-        sys.exit(f"Unsupported table extension '{ext}'. Use .xlsx/.xls or .tsv/.tab/.txt")
+        sys.exit(
+            f"Unsupported table extension '{ext}'. "
+            "Use .xlsx/.xls, .csv, or .tsv/.tab/.txt"
+        )
     df.columns = df.columns.str.strip()
     if case == "upper":
         df.columns = df.columns.str.upper()
@@ -249,26 +254,51 @@ def parse_runs_receipt(log_subdir):
         print(f"  Could not parse receipt {receipts[0]}: {e}")
         return None, []
 
+# Header of submission/run_accessions.txt. 'server' records whether the
+# accession came from the test or the live endpoint; test accessions do not
+# exist on the live server, so the two must never be confused.
+RUN_ACCESSION_HEADER = "experiment_accession\trun_accession\talias\tserver"
+
+
 def append_run_accessions(records, sub_dir, live):
     """
     Append run/experiment accessions to submission/run_accessions.txt.
-    Deduplicates and adds a (test) suffix for test-server submissions.
+
+    Deduplicates. Which server the accession came from is a column ('test' or
+    'live'), not a suffix on the alias, so that anything reading this file back
+    can tell them apart. A file written by an older version of ENflorA, which
+    used a ' (test)' suffix, is upgraded in place the first time it is written.
     """
     if not records:
         return
     out_file = os.path.join(sub_dir, "run_accessions.txt")
-    write_mode = "a+" if os.path.exists(out_file) else "w+"
-    with open(out_file, write_mode) as out:
-        out.seek(0)
-        existing = {l.strip() for l in out if l.strip()}
-        if not existing:
-            out.write("experiment_accession\trun_accession\talias\n")
-        for exp_acc, run_acc, alias in records:
-            line = f"{exp_acc}\t{run_acc}\t{alias}"
-            if not live:
-                line += " (test)"
-            if line not in existing:
-                out.write(line + "\n")
+    server = "live" if live else "test"
+
+    existing = []
+    if os.path.exists(out_file):
+        with open(out_file) as fh:
+            lines = [line.rstrip("\n") for line in fh if line.strip()]
+        if lines and lines[0] == RUN_ACCESSION_HEADER:
+            existing = lines[1:]
+        elif lines:
+            for line in lines[1:]:
+                if line.endswith(" (test)"):
+                    existing.append(line[: -len(" (test)")] + "\ttest")
+                else:
+                    existing.append(line + "\tlive")
+            vlog(f"Upgraded {out_file} to the new server-column format")
+
+    seen = set(existing)
+    for exp_acc, run_acc, alias in records:
+        line = f"{exp_acc}\t{run_acc}\t{alias}\t{server}"
+        if line not in seen:
+            existing.append(line)
+            seen.add(line)
+
+    with open(out_file, "w") as out:
+        out.write(RUN_ACCESSION_HEADER + "\n")
+        for line in existing:
+            out.write(line + "\n")
     print(f"Run accession(s) also saved to: {out_file}")
 
 def submit_manifests(manifests, jar, user, pwd, live, logs_dir, sub_dir):

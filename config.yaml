@@ -1,15 +1,16 @@
-# Runner configuration file for BO ENA submission scripts. Run program by calling either calling set_env's shell, or from FUB's HPC "$sbatch hpc.sh".
+# Runner configuration file for the ENflorA ENA submission scripts. Run the program by either calling set_env's shell, or from FUB's HPC "$sbatch hpc.sh".
 
 credentials: ../credentials.txt
 jar: ../webin-cli-8.2.0.jar
 
-# Paths to either excel or tsv. The first row of either must be the header with the column names. 
-# Can be either absolute or relative path, from the inside of the ENA object folder that was called.
+# Paths to a data table, either Excel (.xlsx/.xls), comma-separated (.csv) or
+# tab-separated (.tsv/.tab/.txt). The first row must be the header with the column names.
+# Can be either an absolute path, or one relative to the ENA object folder that was called.
 data_biosamples: BiosampleList.xlsx
 data_runs: ExperimentList.xlsx
 data_analysis: AnalysisList.xlsx
 
-# If set to False, it will only generate the files for submission (convert excel, generate xml, compress files, etc).
+# If set to False, it will only generate the files for submission (convert the table, generate xml, compress files, etc).
 submit: True
 
 # Set to False to submit to the test server (mind the case).
@@ -18,10 +19,44 @@ live: False
 # Paths to where you want to store the files for submission.
 # If empty it will be set to the current working directory by default
 sub_dir_biosamples:                       # biosamples submission files (XMLs, accessions)
-sub_dir_runs:                             # analysis submission files
-sub_dir_analysis:                         # runs submission files
+sub_dir_runs:                             # runs submission files
+sub_dir_analysis:                         # analysis submission files
 
+# ---------------------------------------------------------------------------
+# Biosamples specific parameters.
+# ---------------------------------------------------------------------------
+
+# The ENA sample checklist your metadata is described with. Download the XML of the
+# checklist you need from https://www.ebi.ac.uk/ena/browser/checklists and point this
+# key at it. It decides which columns biosamples.py expects and which are mandatory.
+# The plant checklist ERC000037 ships with ENflorA as the default.
+checklist: ERC000037.xml
+
+# Fields your group requires even when ENA calls them optional. Leaving one of them
+# empty stops the submission, exactly like a checklist mandatory field.
+# The two below are what the Botanischer Garten plastid workflow requires.
+extra_mandatory:
+  - bio_material
+  - altitude
+
+# Values used when a cell is left empty. A field with a default here never blocks a
+# submission, even when it is mandatory, and even when its column is missing entirely.
+defaults:
+  plant growth medium: soil
+
+# House column names mapped onto checklist fields, so an existing spreadsheet keeps
+# working without renaming its columns. Two columns may point at the same field; their
+# values are then joined with ", " in the order listed here.
+# Delete this whole block if your table already uses the ENA field names.
+column_aliases:
+  latitude:  geographic location (latitude)
+  longitude: geographic location (longitude)
+  country:   geographic location (country and/or sea)
+  locality:  geographic location (region and locality)
+  region:    geographic location (region and locality)
+
+# ---------------------------------------------------------------------------
 # Analysis specific parameters.
+# ---------------------------------------------------------------------------
 assembly_level: chromosome                  # scaffold | contig | chromosome
 mingaplength: 50                          # used only if scaffold & no AGP
-
