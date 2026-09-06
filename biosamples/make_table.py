@@ -98,6 +98,13 @@ def select_fields(spec, all_fields=False, extra_mandatory=None):
     rank = {"core": 0, "mandatory": 1, "recommended": 2, "optional": 3}
     columns.sort(key=lambda item: rank[item[1]])
 
+    # Fields the config marks mandatory are shown as mandatory even when the
+    # checklist calls them optional, otherwise the same config would colour a
+    # column differently depending on whether --all-fields was passed.
+    required = {_norm(entry) for entry in (extra_mandatory or [])}
+    columns = [(name, "mandatory" if _norm(name) in required else status, units)
+               for name, status, units in columns]
+
     known = {_norm(name) for name, _, _ in columns}
     for entry in (extra_mandatory or []):
         if _norm(entry) not in known:

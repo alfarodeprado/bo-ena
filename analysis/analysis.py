@@ -372,26 +372,51 @@ def parse_analysis_receipt(log_subdir):
         print(f"  Could not parse receipt {receipts[0]}: {e}")
         return None, []
 
+# Header of submission/analysis_accessions.txt. 'server' records whether the
+# accession came from the test or the live endpoint; test accessions do not
+# exist on the live server, so the two must never be confused.
+ANALYSIS_ACCESSION_HEADER = "analysis_accession\talias\tserver"
+
+
 def append_analysis_accessions(records, sub_dir, live):
     """
     Append analysis accessions to submission/analysis_accessions.txt.
-    Deduplicates and adds a (test) suffix for test-server submissions.
+
+    Deduplicates. Which server the accession came from is a column ('test' or
+    'live'), not a suffix on the alias, so that anything reading this file back
+    can tell them apart. A file written by an older version of ENflorA, which
+    used a ' (test)' suffix, is upgraded in place the first time it is written.
     """
     if not records:
         return
     out_file = os.path.join(sub_dir, "analysis_accessions.txt")
-    write_mode = "a+" if os.path.exists(out_file) else "w+"
-    with open(out_file, write_mode) as out:
-        out.seek(0)
-        existing = {l.strip() for l in out if l.strip()}
-        if not existing:
-            out.write("analysis_accession\talias\n")
-        for acc, alias in records:
-            line = f"{acc}\t{alias}"
-            if not live:
-                line += " (test)"
-            if line not in existing:
-                out.write(line + "\n")
+    server = "live" if live else "test"
+
+    existing = []
+    if os.path.exists(out_file):
+        with open(out_file) as fh:
+            lines = [line.rstrip("\n") for line in fh if line.strip()]
+        if lines and lines[0] == ANALYSIS_ACCESSION_HEADER:
+            existing = lines[1:]
+        elif lines:
+            for line in lines[1:]:
+                if line.endswith(" (test)"):
+                    existing.append(line[: -len(" (test)")] + "\ttest")
+                else:
+                    existing.append(line + "\tlive")
+            vlog(f"Upgraded {out_file} to the new server-column format")
+
+    seen = set(existing)
+    for acc, alias in records:
+        line = f"{acc}\t{alias}\t{server}"
+        if line not in seen:
+            existing.append(line)
+            seen.add(line)
+
+    with open(out_file, "w") as out:
+        out.write(ANALYSIS_ACCESSION_HEADER + "\n")
+        for line in existing:
+            out.write(line + "\n")
     print(f"Analysis accession(s) also saved to: {out_file}")
 
 def submit_manifests(manifests, jar, user, pwd, live, logs_dir, sub_dir):
