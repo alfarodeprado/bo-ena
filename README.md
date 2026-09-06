@@ -319,7 +319,7 @@ checklist you have none for. Options: `--checklist`, `-o`, `--all-fields`,
 
 Handles paired-end reads (FASTQ1 + FASTQ2 columns), single-end, BAM, and CRAM.
 Already-compressed files are symlinked rather than re-compressed.
-On successful submission, accessions are printed to the terminal and appended to submission/run_accessions.txt (one tab-separated line per submitted row, with a (test) suffix for test-server submissions).
+On successful submission, accessions are printed to the terminal and appended to submission/run_accessions.txt (one tab-separated line per submitted row, with a `server` column recording whether it came from the test or the live endpoint).
 
 ### `analysis.py`
 
@@ -338,7 +338,7 @@ Assembly level handling:
   or globally in config).
 - **Contig:** no extra files needed.
 
-On successful submission, accessions are printed to the terminal and appended to submission/analysis_accessions.txt (one tab-separated line per submitted row, with a (test) suffix for test-server submissions).
+On successful submission, accessions are printed to the terminal and appended to submission/analysis_accessions.txt (one tab-separated line per submitted row, with a `server` column recording whether it came from the test or the live endpoint).
 
 ### `hpc.sh`
 
